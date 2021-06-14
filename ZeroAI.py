@@ -5,6 +5,7 @@ import chess.svg
 from Glyph import State
 from chess import Board, Move
 from Viridithas import Viridithas
+from random import choice, random
 
 
 TICTACTOE_RUNNING = False
@@ -29,9 +30,9 @@ async def on_message(message):
     global TTTgame
     if message.author == client.user:
         return
-
-    if TICTACTOE_RUNNING and message.content[0].lower() == "move" and message.content[1] in "123456789":
-        TTTgame.play(int(message.content[0])-1)
+    print(message.content)
+    if TICTACTOE_RUNNING and message.content.split()[0].lower() == "move" and message.content.split()[1] in "123456789":
+        TTTgame.play(int(message.content.split()[1])-1)
         await message.channel.send(f"```\n{TTTgame.__repr__()}\n```")
         if TTTgame.is_game_over():
             await message.channel.send(TTTgame.show_result_as_str())
@@ -75,6 +76,8 @@ async def on_message(message):
                 CHESSgame = Board()
                 await message.channel.send(f"```\n{CHESSgame.unicode()}\n```")
                 CHESS_RUNNING = True
+        elif args[1] == "pieces":
+            await message.channel.send(", ".join([choice(["pawn", "knight", "bishop", "rook", "queen", "king"]) for _ in range(3)]))
         else:
             await message.channel.send('Invalid command.')
 
