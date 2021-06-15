@@ -1,12 +1,12 @@
 import discord
-import os
+from os import getenv
+from dotenv import load_dotenv
 
 import chess.svg
 from Glyph import State
 from chess import Board, Move
 from Viridithas import Viridithas
 from random import choice, random
-
 
 TICTACTOE_RUNNING = False
 CHESS_RUNNING = False
@@ -15,23 +15,14 @@ HELP_TEXT = """My commands are:
 play [ttt, tictactoe, tic-tac-toe, noughts-and-crosses]
 play [chess]."""
 
+load_dotenv()
+
+token = getenv('TOKEN')
+
 TTTgame = State()
 CHESSgame = Board()
 
 client = discord.Client()
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 @client.event
 async def on_ready():
@@ -110,10 +101,8 @@ async def run_chess(message):
     await message.channel.send(f"```\n{CHESSgame.unicode()}\n```")
     CHESS_RUNNING = True
 
-
 def choose_three_pieces():
     return ", ".join([choice(["pawn", "knight", "bishop", "rook", "queen", "king"]) for _ in range(3)])
 
-
-# client.run(os.getenv('TOKEN'))
-client.run("ODAxNzYzODkwMDQzMDI3NDU2.YAlazw.vZg_qzARKjhSr5MxwGhCurQe0tc")
+if __name__ == "__main__":
+    client.run(token)
