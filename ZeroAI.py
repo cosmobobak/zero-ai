@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 import chess.svg
 from Glyph import State
 from chess import Board, Move
-from Viridithas import Viridithas
+from viri.Viridithas import Viridithas
 from random import choice, random
 
 TICTACTOE_RUNNING = False
@@ -19,8 +19,8 @@ load_dotenv()
 
 token = getenv('TOKEN')
 
-TTTgame = State()
-CHESSgame = Board()
+TTT_GAME = State()
+CHESS_GAME = Board()
 
 client = discord.Client()
 
@@ -33,35 +33,24 @@ async def on_ready():
 async def on_message(message):
     global TICTACTOE_RUNNING
     global CHESS_RUNNING
-    global CHESSgame
-    global TTTgame
+    global CHESS_GAME
+    global TTT_GAME
     if message.author == client.user:
         return
     print(message.content)
     if TICTACTOE_RUNNING and message.content.split()[0].lower() == "move" and message.content.split()[1] in "123456789":
-        TTTgame.play(int(message.content.split()[1])-1)
-        await message.channel.send(f"```\n{TTTgame.__repr__()}\n```")
-        if TTTgame.is_game_over():
-            await message.channel.send(TTTgame.show_result_as_str())
-        if TTTgame.is_game_over():
-            await message.channel.send(TTTgame.show_result_as_str())
+        TTT_GAME.play(int(message.content.split()[1])-1)
+        await message.channel.send(f"```\n{TTT_GAME.__repr__()}\n```")
+        if TTT_GAME.is_game_over():
+            await message.channel.send(TTT_GAME.show_result_as_str())
+        if TTT_GAME.is_game_over():
+            await message.channel.send(TTT_GAME.show_result_as_str())
     elif TICTACTOE_RUNNING and message.content[0].lower() == "move" and message.content[1] == "resign":
         await message.channel.send("1-0")
 
     if CHESS_RUNNING and message.content.split()[0].lower() == "move":
         try:
-            move = CHESSgame.parse_san(message.content.split()[1])
-            CHESSgame.push(move)
-            await message.channel.send(f"```\n{CHESSgame.unicode()}\n```")
-            if CHESSgame.is_game_over():
-                await message.channel.send(CHESSgame.result())
-            engine = Viridithas(human=False, fen=CHESSgame.fen(), pgn='', timeLimit=15,
-                                fun=False, contempt=3000, book=True, advancedTC=[])
-            move = engine.engine_move()
-            CHESSgame.push(move)
-            await message.channel.send(f"```\n{CHESSgame.unicode()}\n```")
-            if CHESSgame.is_game_over():
-                await message.channel.send(CHESSgame.result())
+            await viridithas_engine_move(message)
 
         except AssertionError:
             await message.channel.send("invalid move.")
@@ -77,28 +66,56 @@ async def on_message(message):
             for c in ["ttt", "tictactoe", "tic-tac-toe", "noughts-and-crosses"]:
                 play_function_map[c] = run_ttt
 
-            play_function_map.get(args[2], default=not_programmed)(message)
+            await play_function_map.get(args[2], not_programmed)(message)
 
         elif args[1] == "pieces":
             await message.channel.send(choose_three_pieces())
         else:
             await message.channel.send('Invalid command.')
 
+
+async def viridithas_engine_move(message):
+    global CHESS_GAME
+    move: Move = CHESS_GAME.parse_san(message.content.split()[1])
+
+    CHESS_GAME.push(move)
+
+
+    await message.channel.send(
+        f"The board after your move:\n```\n{CHESS_GAME.unicode()}\n```")
+
+    if CHESS_GAME.is_game_over():
+        await message.channel.send(CHESS_GAME.result())
+    
+    engine = Viridithas(human=False, fen=CHESS_GAME.fen(), pgn='', timeLimit=15,
+                                fun=False, contempt=3000, book=True, advancedTC=[])
+    
+    move = engine.engine_move()
+
+    CHESS_GAME.push(move)
+
+    await message.channel.send(
+        f"The board after Viri's move:```\n{CHESS_GAME.unicode()}\n```")
+
+    if CHESS_GAME.is_game_over():
+        await message.channel.send(CHESS_GAME.result())
+
 async def not_programmed(message):
     return await message.channel.send('I am not programmed to play that game.')
 
 async def run_ttt(message):
+    global TTT_GAME
     global TICTACTOE_RUNNING
     await message.channel.send('A nice game of noughts and crosses.')
-    TTTgame = State()
-    await message.channel.send(f"```\n{TTTgame.__repr__()}\n```")
+    TTT_GAME = State()
+    await message.channel.send(f"```\n{TTT_GAME.__repr__()}\n```")
     TICTACTOE_RUNNING = True
 
 async def run_chess(message):
     global CHESS_RUNNING
     await message.channel.send('A nice game of chess.')
     CHESSgame = Board()
-    await message.channel.send(f"```\n{CHESSgame.unicode()}\n```")
+    await message.channel.send(f"```\n{CHESSgame.unicode()}\n```\nType \"move [san]\" to make a move.")
     CHESS_RUNNING = True
 
 def choose_three_pieces():
