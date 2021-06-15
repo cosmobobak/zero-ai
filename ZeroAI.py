@@ -11,10 +11,26 @@ from random import choice, random
 TICTACTOE_RUNNING = False
 CHESS_RUNNING = False
 
+HELP_TEXT = """My commands are:
+play [ttt, tictactoe, tic-tac-toe, noughts-and-crosses]
+play [chess]."""
+
 TTTgame = State()
 CHESSgame = Board()
 
 client = discord.Client()
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 @client.event
@@ -56,31 +72,48 @@ async def on_message(message):
             if CHESSgame.is_game_over():
                 await message.channel.send(CHESSgame.result())
 
-        except Exception:
+        except AssertionError:
             await message.channel.send("invalid move.")
 
     if message.content.lower().startswith('computer,'):
         args = [x.lower() for x in message.content.split()]
         if args[1] == "help":
-            await message.channel.send('My commands are:\n play [ttt, tictactoe, tic-tac-toe, noughts-and-crosses]\n play [chess].')
+
+            await message.channel.send(HELP_TEXT)
         elif args[1] == "play":
-            if args[2] not in ["chess", "ttt", "tictactoe", "tic-tac-toe", "noughts-and-crosses", "connect-4", "uttt"]:
-                await message.channel.send('I am not programmed to play that game.')
-            elif args[2] in ["ttt", "tictactoe", "tic-tac-toe", "noughts-and-crosses"]:
-                await message.channel.send('A nice game of noughts and crosses.')
-                TTTgame = State()
-                await message.channel.send(f"```\n{TTTgame.__repr__()}\n```")
-                TICTACTOE_RUNNING = True
-            elif args[2] in ["chess"]:
-                await message.channel.send('A nice game of chess.')
-                CHESSgame = Board()
-                await message.channel.send(f"```\n{CHESSgame.unicode()}\n```")
-                CHESS_RUNNING = True
+            play_function_map = dict()
+            play_function_map["chess"] = run_chess
+            for c in ["ttt", "tictactoe", "tic-tac-toe", "noughts-and-crosses"]:
+                play_function_map[c] = run_ttt
+
+            play_function_map.get(args[2], default=not_programmed)(message)
+
         elif args[1] == "pieces":
-            await message.channel.send(", ".join([choice(["pawn", "knight", "bishop", "rook", "queen", "king"]) for _ in range(3)]))
+            await message.channel.send(choose_three_pieces())
         else:
             await message.channel.send('Invalid command.')
 
+async def not_programmed(message):
+    return await message.channel.send('I am not programmed to play that game.')
+
+async def run_ttt(message):
+    global TICTACTOE_RUNNING
+    await message.channel.send('A nice game of noughts and crosses.')
+    TTTgame = State()
+    await message.channel.send(f"```\n{TTTgame.__repr__()}\n```")
+    TICTACTOE_RUNNING = True
+
+async def run_chess(message):
+    global CHESS_RUNNING
+    await message.channel.send('A nice game of chess.')
+    CHESSgame = Board()
+    await message.channel.send(f"```\n{CHESSgame.unicode()}\n```")
+    CHESS_RUNNING = True
+
+
+def choose_three_pieces():
+    return ", ".join([choice(["pawn", "knight", "bishop", "rook", "queen", "king"]) for _ in range(3)])
+
 
 # client.run(os.getenv('TOKEN'))
-client.run("ODAxNzYzODkwMDQzMDI3NDU2.YAlazw.kHrSRqli72lM1wp1i_i_Y-d6jgg")
+client.run("ODAxNzYzODkwMDQzMDI3NDU2.YAlazw.vZg_qzARKjhSr5MxwGhCurQe0tc")
