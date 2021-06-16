@@ -17,10 +17,22 @@ from cachetools import LRUCache
 from typing import Hashable
 from viri.evaluation import chessboard_pst_eval, chessboard_static_exchange_eval
 from viri.data_input import get_engine_parameters
+from dataclasses import dataclass
+from time import time
 print("Python version")
 print(sys.version)
 
 MOBILITY_FACTOR = 10
+
+@dataclass
+class SearchResult():
+    move: str
+    depth: int
+    time_to_depth: float
+    evaluation: int
+
+    def __repr__(self) -> str:
+        return f"Viri plays {self.move} after thinking for {self.time_to_depth}s and reaching depth {self.depth}. Predicted eval: {self.evaluation / 1000}"
 
 class TTEntry():
     def __init__(self, best: Move, depth: float, a: int, hashDataType: int):
@@ -52,11 +64,11 @@ class Viridithas():
                 except Exception:
                     continue
         self.timeLimit = timeLimit
-        self.startTime = time.time()
+        self.startTime = time()
         if advancedTC:
             if not human:
                 advancedTC[0] = advancedTC[0]*2
-            self.endpoint = time.time()+advancedTC[0]*60
+            self.endpoint = time()+advancedTC[0]*60
             self.increment = advancedTC[1]
         else:
             self.endpoint = 0
@@ -75,6 +87,7 @@ class Viridithas():
         self.inbook = book
         self.ext = False
         self.searchdata = []
+        self.last_search: SearchResult
 
     def set_position(self, fen):
         self.node = Board(fen)
@@ -319,27 +332,32 @@ class Viridithas():
         return -1 if self.node.turn else 1
 
     def show_iteration_data(self, moves: list, values: list, depth: float) -> tuple:
-        t = round(time.time()-self.startTime, 2)
+        t = round(time()-self.startTime, 2)
         print(f"{self.node.san(moves[0])} | {round((self.turnmod()*values[0])/1000, 3)} | {str(t)}s at depth {str(depth + 1)}, {str(self.nodes)} nodes processed, at {str(int(self.nodes / (t+0.00001)))}NPS.\n", end="")
         return (self.node.san(moves[0]), self.turnmod()*values[0], self.nodes, depth+1, t)
 
     def search(self, ponder: bool = False):
-        self.startTime = time.time()
+        self.startTime = time()
         self.nodes = 0
         moves = list(self.ordered_moves())
         values = [0.0 for m in moves]
         for depth in range(0, 40):
-            if self.timeLimit*2/3 < time.time()-self.startTime and not ponder:
+            if self.timeLimit*2/3 < time()-self.startTime and not ponder:
                 return moves[0]
             for i, move in enumerate(moves):
                 self.node.push(move)
                 values[i] = self.negamax_pvs(depth, self.turnmod())
                 self.node.pop()
-                if self.timeLimit < time.time()-self.startTime and not ponder:
+                if self.timeLimit < time()-self.startTime and not ponder:
                     return moves[0]
             moves, values = self.move_sort(moves, values)
             self.searchdata.append(
                 self.show_iteration_data(moves, values, depth))
+            self.last_search = SearchResult(
+                move=self.node.san(moves[0]), 
+                depth=depth,
+                time_to_depth=time()-self.startTime,
+                evaluation=self.turnmod()*values[0])
             # [print(self.node.san(move), end=" ") for move in moves]
             # print("\n")
             # if depth < 7 and abs(values[0]) > 300000000 and not ponder:
@@ -363,17 +381,20 @@ class Viridithas():
     def engine_move(self) -> Move:
         # add flag_func for egtb mode
         if self.advancedTC:
-            self.timeLimit = (self.endpoint-time.time())/20
+            self.timeLimit = (self.endpoint-time())/20
         print("Time for move: " + str(round(self.timeLimit, 2)) + "s")
         if self.inbook:
             try:
                 best, choice = self.get_book_move()
-                if self.fun:
-                    self.node.push(choice)
-                    return choice
-                else:
-                    self.node.push(best)
+                move = choice if self.fun else best
+                self.last_search = SearchResult(
+                    move=self.node.san(move),
+                    depth=-1,
+                    time_to_depth=0,
+                    evaluation=0)
+                self.node.push(move)
                 print(chess.pgn.Game.from_board(self.node)[-1])
+                return move
             except IndexError:
                 self.timeLimit = self.timeLimit*2
                 best = self.search()
@@ -502,11 +523,11 @@ class Fork(Viridithas):
                 except Exception:
                     continue
         self.timeLimit = timeLimit
-        self.startTime = time.time()
+        self.startTime = time()
         if advancedTC:
             if not human:
                 advancedTC[0] = advancedTC[0]*2
-            self.endpoint = time.time()+advancedTC[0]*60
+            self.endpoint = time()+advancedTC[0]*60
             self.increment = advancedTC[1]
         else:
             self.endpoint = 0

@@ -21,6 +21,8 @@ token = getenv('TOKEN')
 
 TTT_GAME = State()
 CHESS_GAME = Board()
+CHESS_ENGINE = Viridithas(human=False, fen=CHESS_GAME.fen(), pgn='', timeLimit=15,
+                          fun=False, contempt=3000, book=True, advancedTC=[])
 
 client = discord.Client()
 
@@ -79,7 +81,7 @@ async def viridithas_engine_move(message):
     move: Move = CHESS_GAME.parse_san(message.content.split()[1])
 
     CHESS_GAME.push(move)
-
+    CHESS_ENGINE.node.push(move)
 
     await message.channel.send(
         f"The board after your move:\n```\n{CHESS_GAME.unicode()}\n```")
@@ -87,15 +89,13 @@ async def viridithas_engine_move(message):
     if CHESS_GAME.is_game_over():
         await message.channel.send(CHESS_GAME.result())
     
-    engine = Viridithas(human=False, fen=CHESS_GAME.fen(), pgn='', timeLimit=15,
-                                fun=False, contempt=3000, book=True, advancedTC=[])
-    
-    move = engine.engine_move()
-
+    await message.channel.send("Starting to think!")
+    move = CHESS_ENGINE.engine_move()
+    await message.channel.send("Finished thinking.")
     CHESS_GAME.push(move)
 
     await message.channel.send(
-        f"The board after Viri's move:```\n{CHESS_GAME.unicode()}\n```")
+        f"The board after Viri's move:```\n{CHESS_GAME.unicode()}\n```\n{CHESS_ENGINE.last_search}")
 
     if CHESS_GAME.is_game_over():
         await message.channel.send(CHESS_GAME.result())
