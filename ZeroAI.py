@@ -5,11 +5,16 @@ from dotenv import load_dotenv
 import chess.svg
 from Glyph import State
 from chess import Board, Move
-from viri.Viridithas import Viridithas
+from viridithas_chess.src.Viridithas import Viridithas
 from random import choice, random
+
+COMMAND_CHARACTER = '!'
 
 TICTACTOE_RUNNING = False
 CHESS_RUNNING = False
+
+lads = {"finegold", "gotham", "jamie", "kit", "mike", "cosmo",
+        "edward", "marina", "tegan", "elyn", "roman"}
 
 HELP_TEXT = """My commands are:
 play [ttt, tictactoe, tic-tac-toe, noughts-and-crosses]
@@ -21,8 +26,14 @@ token = getenv('TOKEN')
 
 TTT_GAME = State()
 CHESS_GAME = Board()
-CHESS_ENGINE = Viridithas(human=False, fen=CHESS_GAME.fen(), pgn='', timeLimit=15,
-                          fun=False, contempt=3000, book=True, advancedTC=[])
+CHESS_ENGINE = Viridithas(
+    human=False, 
+    fen=CHESS_GAME.fen(), 
+    pgn='', 
+    timeLimit=15,
+    book=True,
+    fun=True,  
+    contempt=3000)
 
 client = discord.Client()
 
@@ -31,54 +42,62 @@ async def on_ready():
     print('We have logged in as {0.user}'.format(client))
 
 
+def process(s: str) -> "tuple[str, list[str]]":
+    if len(s) == 0 or len(s) == 1:
+        return '', []
+    head = s[0]
+    tail = s[1:]
+    return head, tail.split()
+
+
+def strip_endline(s):
+    return s if s[-1] != '\n' else s[:-1]
+
 @client.event
-async def on_message(message):
+async def on_message(msg):
+    if msg.author == client.user: return
+
     global TICTACTOE_RUNNING
     global CHESS_RUNNING
     global CHESS_GAME
     global TTT_GAME
-    if message.author == client.user:
-        return
-    print(message.content)
-    if TICTACTOE_RUNNING and message.content.split()[0].lower() == "move" and message.content.split()[1] in "123456789":
-        TTT_GAME.play(int(message.content.split()[1])-1)
-        await message.channel.send(f"```\n{TTT_GAME.__repr__()}\n```")
-        if TTT_GAME.is_game_over():
-            await message.channel.send(TTT_GAME.show_result_as_str())
-        if TTT_GAME.is_game_over():
-            await message.channel.send(TTT_GAME.show_result_as_str())
-    elif TICTACTOE_RUNNING and message.content[0].lower() == "move" and message.content[1] == "resign":
-        await message.channel.send("1-0")
 
-    if CHESS_RUNNING and message.content.split()[0].lower() == "move":
-        try:
-            await viridithas_engine_move(message)
+    lead_char, cmd = process(msg.content)
+    if lead_char != COMMAND_CHARACTER: return
+    if len(cmd) == 0: return
 
-        except AssertionError:
-            await message.channel.send("invalid move.")
+    print(cmd)
 
-    if message.content.lower().startswith('computer,'):
-        args = [x.lower() for x in message.content.split()]
-        if args[1] == "help":
+    head, *tail = cmd
 
-            await message.channel.send(HELP_TEXT)
-        elif args[1] == "play":
-            play_function_map = dict()
-            play_function_map["chess"] = run_chess
-            for c in ["ttt", "tictactoe", "tic-tac-toe", "noughts-and-crosses"]:
-                play_function_map[c] = run_ttt
+    if head == "pieces":
+        pieces = ["pawn", "knight", "bishop", "rook", "queen", "king"]
+        content = ", ".join([choice(pieces) for i in range(3)])
+        await send(msg, content)
+    if head == "quote":
+        assert len(tail) >= 1
+        name, *_ = tail
+        filename = name + "quotes.txt"
+        with open(filename, 'r') as f:
+            qs = [strip_endline(q) for q in f]
+        await send(msg, f"{name}: \"{choice(qs)}\"")
+    if head == "addquote":
+        assert len(tail) >= 2
+        name, *quotelist = tail
+        assert name in lads
+        quote = " ".join(quotelist)
+        filename = name + "quotes.txt"
+        with open(filename, 'a') as f:
+            f.write("\n")
+            f.write(quote)
+        await send(msg, f"added quote \"{quote}\" to file {filename}")
 
-            await play_function_map.get(args[2], not_programmed)(message)
+async def send(message, text):
+    await message.channel.send(text)
 
-        elif args[1] == "pieces":
-            await message.channel.send(choose_three_pieces())
-        else:
-            await message.channel.send('Invalid command.')
-
-
-async def viridithas_engine_move(message):
+async def viridithas_engine_move(message, message_content):
     global CHESS_GAME
-    move: Move = CHESS_GAME.parse_san(message.content.split()[1])
+    move: Move = CHESS_GAME.parse_san(message_content[1])
 
     CHESS_GAME.push(move)
     CHESS_ENGINE.node.push(move)
@@ -95,7 +114,7 @@ async def viridithas_engine_move(message):
     CHESS_GAME.push(move)
 
     await message.channel.send(
-        f"The board after Viri's move:```\n{CHESS_GAME.unicode()}\n```\n{CHESS_ENGINE.last_search}")
+        f"The board after Viri's move:```\n{CHESS_GAME.unicode()}\n```\n{CHESS_ENGINE.last_search()}")
 
     if CHESS_GAME.is_game_over():
         await message.channel.send(CHESS_GAME.result())
