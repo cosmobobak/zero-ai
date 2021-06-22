@@ -2,14 +2,15 @@ import discord
 from os import getenv
 from dotenv import load_dotenv
 
-import chess.svg
-from chess import Board, Move
 from random import choice, random
+from storage import read_users, save_user
 
 COMMAND_CHARACTER = '!'
 
 lads = {"finegold", "gotham", "jamie", "kit", "mike", "cosmo",
-        "edward", "marina", "tegan", "elyn", "roman"}
+        "edward", "marina", "tegan", "elyn", "roman", "adam"}
+
+usermap = read_users()
 
 HELP_TEXT = """My commands are:
 play [ttt, tictactoe, tic-tac-toe, noughts-and-crosses]
@@ -18,7 +19,6 @@ play [chess]."""
 load_dotenv()
 
 token = getenv('TOKEN')
-
 
 client = discord.Client()
 
@@ -37,6 +37,10 @@ def process(s: str) -> "tuple[str, list[str]]":
 
 def strip_endline(s):
     return s if s[-1] != '\n' else s[:-1]
+
+async def map_uid_to_handle(uid: str):
+    user = await client.fetch_user(int(uid[3:-1]))
+    return user.name + "#" + user.discriminator
 
 @client.event
 async def on_message(msg):
@@ -69,13 +73,24 @@ async def on_message(msg):
     if head == "addquote":
         assert len(tail) >= 2
         name, *quotelist = tail
-        assert name in lads
+        assert name in lads or name == "me"
+        if name == "me":
+            name = usermap.get(msg.author, default="NO_PERSON")
+        if name == "NO_PERSON" or name not in lads: return
         quote = " ".join(quotelist)
         filename = name + "quotes.txt"
         with open(filename, 'a') as f:
             f.write("\n")
             f.write(quote)
         await send(msg, f"added quote \"{quote}\" to file {filename}")
+    if head == "adduser":
+        assert len(tail) == 2
+        name, uid = tail
+        if uid == "me": 
+            save_user(msg.author, name)
+        else: 
+            handle = await map_uid_to_handle(uid)
+            save_user(handle, name)
 
 async def send(message, text):
     await message.channel.send(text)
