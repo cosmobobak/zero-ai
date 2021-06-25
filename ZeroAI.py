@@ -95,7 +95,10 @@ async def on_message(msg):
         count = len(qs)
         avglen = int(sum(map(len, qs)) / count + 0.5)
         await send(msg, f"{name} has {count} quotes, with an average quote length of {avglen}.")
-
+    if head == "ballsdeep":
+        await send(msg, "[SUCCESSFULLY HACKED FBI - BLOWING UP COMPUTER]")
+        for i in range(5, 0, -1):
+            await send(msg, f"{i}")
 
 async def send(message, text):
     await message.channel.send(text)
