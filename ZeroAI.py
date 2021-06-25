@@ -93,7 +93,7 @@ async def on_message(msg):
         with open(filename, 'r') as f:
             qs = [strip_endline(q) for q in f]
         count = len(qs)
-        avglen = sum(map(len, qs)) / count
+        avglen = int(sum(map(len, qs)) / count + 0.5)
         await send(msg, f"{name} has {count} quotes, with an average quote length of {avglen}.")
 
 
