@@ -46,11 +46,6 @@ async def map_uid_to_handle(uid: str):
 async def on_message(msg):
     if msg.author == client.user: return
 
-    global TICTACTOE_RUNNING
-    global CHESS_RUNNING
-    global CHESS_GAME
-    global TTT_GAME
-
     lead_char, cmd = process(msg.content)
     if lead_char != COMMAND_CHARACTER: return
     if len(cmd) == 0: return
@@ -91,6 +86,16 @@ async def on_message(msg):
         else: 
             handle = await map_uid_to_handle(uid)
             save_user(handle, name)
+    if head == "quotestats":
+        assert len(tail) >= 1
+        name, *_ = tail
+        filename = name + "quotes.txt"
+        with open(filename, 'r') as f:
+            qs = [strip_endline(q) for q in f]
+        count = len(qs)
+        avglen = sum(map(len, qs)) / count
+        await send(msg, f"{name} has {count} quotes, with an average quote length of {avglen}.")
+
 
 async def send(message, text):
     await message.channel.send(text)
