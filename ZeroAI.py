@@ -1,16 +1,17 @@
 import discord
+from discord import Message
 from os import getenv
 from dotenv import load_dotenv
 
 from random import choice, random
-from storage import read_users, save_user
+from storage import UserData, read_users, save_user, write_users
 
 COMMAND_CHARACTER = '!'
 
 lads = {"finegold", "gotham", "jamie", "kit", "mike", "cosmo",
         "edward", "marina", "tegan", "elyn", "roman", "adam"}
 
-usermap = read_users()
+userset = read_users()
 
 HELP_TEXT = """My commands are:
 play [ttt, tictactoe, tic-tac-toe, noughts-and-crosses]
@@ -43,7 +44,7 @@ async def map_uid_to_handle(uid: str):
     return user.name + "#" + user.discriminator
 
 @client.event
-async def on_message(msg):
+async def on_message(msg: Message):
     if msg.author == client.user: return
 
     lead_char, cmd = process(msg.content)
@@ -66,13 +67,25 @@ async def on_message(msg):
         await quotestats(msg, tail)
     if head == "ballsdeep":
         await ballsdeep(msg)
+    if head == "joinme":
+        await associate_user_with_id(msg, tail)
 
-async def pieces(msg):
+async def pieces(msg: Message):
     pieces = ["pawn", "knight", "bishop", "rook", "queen", "king"]
     content = ", ".join([choice(pieces) for i in range(3)])
     await send(msg, content)
 
-async def quote(msg, tail):
+async def associate_user_with_id(msg: Message, tail):
+    assert len(tail) >= 1
+    name, *_ = tail
+    
+    userset.add(UserData(name, msg.author.name, msg.author.discriminator))
+
+    await send(msg, f"Saving {name}'s associated account as {msg.author.name}#{msg.author.discriminator}")
+
+    write_users(userset)
+
+async def quote(msg: Message, tail):
     assert len(tail) >= 1
     name, *_ = tail
     filename = name + "quotes.txt"
@@ -80,7 +93,7 @@ async def quote(msg, tail):
         qs = [strip_endline(q) for q in f]
     await send(msg, f"{name}: \"{choice(qs)}\"")
 
-async def addquote(msg, tail):
+async def addquote(msg: Message, tail):
     assert len(tail) >= 2
     name, *quotelist = tail
 
@@ -96,7 +109,7 @@ async def addquote(msg, tail):
         f.write(quote)
     await send(msg, f"added quote \"{quote}\" to file {filename}")
 
-async def adduser(msg, tail):
+async def adduser(msg: Message, tail):
     assert len(tail) == 2
     name, uid = tail
     if uid == "me": 
@@ -105,7 +118,7 @@ async def adduser(msg, tail):
         handle = await map_uid_to_handle(uid)
         save_user(handle, name)
 
-async def quotestats(msg, tail):
+async def quotestats(msg: Message, tail):
     assert len(tail) >= 1
     name, *_ = tail
     filename = name + "quotes.txt"
@@ -115,12 +128,12 @@ async def quotestats(msg, tail):
     avglen = int(sum(map(len, qs)) / count + 0.5)
     await send(msg, f"{name} has {count} quotes, with an average quote length of {avglen}.")
 
-async def ballsdeep(msg):
+async def ballsdeep(msg: Message):
     await send(msg, "[SUCCESSFULLY HACKED FBI - BLOWING UP COMPUTER]")
     for i in range(5, 0, -1):
         await send(msg, f"{i}")
 
-async def send(message, text):
+async def send(message: Message, text):
     await message.channel.send(text)
 
 def choose_three_pieces():
