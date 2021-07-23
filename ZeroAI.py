@@ -93,6 +93,13 @@ async def quote(msg: Message, tail):
         qs = [strip_endline(q) for q in f]
     await send(msg, f"{name}: \"{choice(qs)}\"")
 
+
+def user_find(username, discriminator):
+    for u in userset:
+        if u.username == username and u.code == discriminator:
+            return u.name
+    return None
+
 async def addquote(msg: Message, tail):
     assert len(tail) >= 2
     name, *quotelist = tail
@@ -100,8 +107,15 @@ async def addquote(msg: Message, tail):
     assert name in lads or name == "me"
 
     if name == "me":
-        name = usermap.get(msg.author, default="NO_PERSON")
-    if name == "NO_PERSON" or name not in lads: return
+        name = user_find(msg.author.name, msg.author.discriminator)
+
+    if name == None or name not in lads:
+        if name != None:
+            await send(msg, f"\"{name}\" is not in my list of users. Use !joinme {name} if you are {name} and want to be added.")
+        else:
+            await send(msg, "I don't know who you are. Use !joinme [name] if you want to be added.")
+        return
+
     quote = " ".join(quotelist)
     filename = name + "quotes.txt"
     with open(filename, 'a') as f:

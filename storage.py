@@ -1,20 +1,19 @@
-from attr import dataclass
-from discord import User
+from dataclasses import dataclass
 
 @dataclass
 class UserData:
     name: str
-    code: str
     username: str
+    code: str
     isnull: bool = False
 
     def __eq__(self, o: object) -> bool:
         if isinstance(o, UserData):
-            return self.name == o.name and self.code == o.code and self.username == o.username and self.isnull == o.isnull
+            return self.name == o.name
         return False
 
     def __hash__(self) -> int:
-        return hash(self.name + self.code + self.username)
+        return hash(self.name)
 
 def read_users() -> "set[UserData]":
     # Reads the users.txt file and returns a dictionary of uid: name
@@ -26,8 +25,11 @@ def read_users() -> "set[UserData]":
             if line == "":
                 continue
             name, uid = line.split(":")
-            username, code = uid.split("#")
-            users.add(UserData(name, code, username))
+            if uid == "null":
+                users.add(UserData(name, "null", "null", True))
+            else:
+                username, code = uid.split("#")
+                users.add(UserData(name, username, code))
         return users
 
 def write_users(users: "set[UserData]") -> None:
