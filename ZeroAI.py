@@ -61,8 +61,6 @@ async def on_message(msg: Message):
         await quote(msg, tail)
     if head == "addquote":
         await addquote(msg, tail)
-    if head == "adduser":
-        await adduser(msg, tail)
     if head == "quotestats":
         await quotestats(msg, tail)
     if head == "ballsdeep":
@@ -76,10 +74,14 @@ async def pieces(msg: Message):
     await send(msg, content)
 
 async def associate_user_with_id(msg: Message, tail):
-    assert len(tail) >= 1
+    if not len(tail) >= 1:
+        await send(msg, "you have to specify a name for !joinme to work.")
+        return
     name, *_ = tail
     
-    userset.add(UserData(name, msg.author.name, msg.author.discriminator))
+    ud = UserData(name, msg.author.name, msg.author.discriminator)
+    userset.discard(ud)
+    userset.add(ud)
 
     await send(msg, f"Saving {name}'s associated account as {msg.author.name}#{msg.author.discriminator}")
 
@@ -88,10 +90,26 @@ async def associate_user_with_id(msg: Message, tail):
 async def quote(msg: Message, tail):
     assert len(tail) >= 1
     name, *_ = tail
+
+    name = await handle_name(msg, name)
+    if name == None: return
+
     filename = name + "quotes.txt"
     with open(filename, 'r') as f:
         qs = [strip_endline(q) for q in f]
     await send(msg, f"{name}: \"{choice(qs)}\"")
+
+async def handle_name(msg, name):
+    if name == "me":
+        name = user_find(msg.author.name, msg.author.discriminator)
+
+    if name == None or name not in lads:
+        if name != None:
+            await send(msg, f"\"{name}\" is not in my list of users. Use !joinme {name} if you are {name} and want to be added.")
+        else:
+            await send(msg, "I don't know who you are. Use !joinme [name] if you want to be added.")
+        return
+    return name
 
 
 def user_find(username, discriminator):
@@ -104,17 +122,8 @@ async def addquote(msg: Message, tail):
     assert len(tail) >= 2
     name, *quotelist = tail
 
-    assert name in lads or name == "me"
-
-    if name == "me":
-        name = user_find(msg.author.name, msg.author.discriminator)
-
-    if name == None or name not in lads:
-        if name != None:
-            await send(msg, f"\"{name}\" is not in my list of users. Use !joinme {name} if you are {name} and want to be added.")
-        else:
-            await send(msg, "I don't know who you are. Use !joinme [name] if you want to be added.")
-        return
+    name = await handle_name(msg, name)
+    if name == None: return
 
     quote = " ".join(quotelist)
     filename = name + "quotes.txt"
@@ -123,18 +132,13 @@ async def addquote(msg: Message, tail):
         f.write(quote)
     await send(msg, f"added quote \"{quote}\" to file {filename}")
 
-async def adduser(msg: Message, tail):
-    assert len(tail) == 2
-    name, uid = tail
-    if uid == "me": 
-        save_user(msg.author, name)
-    else: 
-        handle = await map_uid_to_handle(uid)
-        save_user(handle, name)
-
 async def quotestats(msg: Message, tail):
     assert len(tail) >= 1
     name, *_ = tail
+
+    name = await handle_name(msg, name)
+    if name == None: return
+
     filename = name + "quotes.txt"
     with open(filename, 'r') as f:
         qs = [strip_endline(q) for q in f]

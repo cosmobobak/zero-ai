@@ -15,6 +15,9 @@ class UserData:
     def __hash__(self) -> int:
         return hash(self.name)
 
+    def __repr__(self) -> str:
+        return f"{self.name}, {self.username}#{self.code}\n"
+
 def read_users() -> "set[UserData]":
     # Reads the users.txt file and returns a dictionary of uid: name
     # uid is in the format "username#1234"
