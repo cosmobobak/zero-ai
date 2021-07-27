@@ -75,7 +75,7 @@ async def pieces(msg: Message):
 
 async def associate_user_with_id(msg: Message, tail):
     if not len(tail) >= 1:
-        await send(msg, "you have to specify a name for !joinme to work.")
+        await send(msg, "You have to specify a name for !joinme to work.")
         return
     name, *_ = tail
     
