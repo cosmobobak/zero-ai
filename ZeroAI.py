@@ -132,6 +132,9 @@ async def quote(msg: Message, tail):
     if len (tail) == 2:
         name, num, *_ = tail
         num = int(num)
+        if num > 5:
+            await send(msg, "You may only request up to five sequential quotes.")
+            return
         for _ in range(num):
             await quote(msg, [name])
         return

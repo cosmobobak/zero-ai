@@ -57,6 +57,6 @@ def compute_quote_distribution() -> "dict[str, int]":
     for user in users:
         if user.isnull:
             continue
-        with open(f"quotes/{user.username}.txt", 'r') as f:
+        with open(f"quotes/{user.name}quotes.txt", 'r') as f:
             quote_distribution[user.name] = len(f.readlines())
     return quote_distribution
