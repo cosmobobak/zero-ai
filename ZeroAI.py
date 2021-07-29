@@ -4,13 +4,15 @@ from os import getenv
 from dotenv import load_dotenv
 
 from random import choice, random
-from storage import UserData, read_users, save_user, write_users
+from storage import UserData, compute_quote_distribution, read_users, save_user, write_users
 
 COMMAND_CHARACTER = '!'
 
 lads = {"finegold", "gotham", "jamie", "kit", "mike", "cosmo",
         "edward", "marina", "tegan", "elyn", "roman", "adam", 
         "cameron", "kim"}
+
+user_quote_distribution: "dict[str, int]" = compute_quote_distribution()
 
 userset = read_users()
 
@@ -28,13 +30,28 @@ client = discord.Client()
 async def on_ready():
     print('We have logged in as {0.user}'.format(client))
 
+def weighted_choice(distribution_dict: "dict[str, int]") -> str:
+    """
+    Chooses a random element from a dictionary based on the weights
+    of the elements.
+    """
+    total = sum(distribution_dict.values())
+    r = random() * total
+    for key, weight in distribution_dict.items():
+        r -= weight
+        if r <= 0:
+            return key
+    assert False
 
-def process(s: str) -> "tuple[str, list[str]]":
-    if len(s) == 0 or len(s) == 1:
+def sanitise_message(message_string: str) -> "tuple[str, list[str]]":
+    """
+    Takes a string representing a discord message and returns a tuple of 
+    (the lead character, a list of the words in the rest of the message)
+    """
+    if len(message_string) in [0, 1]:
         return '', []
-    head = s[0]
-    tail = s[1:]
-    return head, tail.split()
+    head, *tail = message_string
+    return head, "".join(tail).split(" ")
 
 
 def strip_endline(s):
@@ -48,7 +65,7 @@ async def map_uid_to_handle(uid: str):
 async def on_message(msg: Message):
     if msg.author == client.user: return
 
-    lead_char, cmd = process(msg.content)
+    lead_char, cmd = sanitise_message(msg.content)
     if lead_char != COMMAND_CHARACTER: return
     if len(cmd) == 0: return
 
@@ -115,7 +132,7 @@ async def quote(msg: Message, tail):
         return
 
     if len(tail) == 0:
-        name = choice(list(userset)).name
+        name = weighted_choice(user_quote_distribution)
     else:
         name, *_ = tail
 

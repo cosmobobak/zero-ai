@@ -47,3 +47,16 @@ def write_users(users: "set[UserData]") -> None:
 def save_user(uid: str, name: str):
     with open("users.txt", 'a') as f:
         f.write(f"{uid} {name}\n")
+
+
+def compute_quote_distribution() -> "dict[str, int]":
+    # Reads the users file, and then for each user, counts how many quotes they have
+    # and returns a dictionary of quote: count
+    users = read_users()
+    quote_distribution = {}
+    for user in users:
+        if user.isnull:
+            continue
+        with open(f"quotes/{user.username}.txt", 'r') as f:
+            quote_distribution[user.name] = len(f.readlines())
+    return quote_distribution
