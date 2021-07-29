@@ -8,6 +8,11 @@ from storage import UserData, read_users, save_user, write_users
 
 COMMAND_CHARACTER = '!'
 
+QUOTEPATH = "quotes/"
+
+def generate_quote_path(name: str) -> str:
+    return f"{QUOTEPATH}{name}quotes.txt"
+
 lads = {"finegold", "gotham", "jamie", "kit", "mike", "cosmo",
         "edward", "marina", "tegan", "elyn", "roman", "adam", 
         "cameron", "kim"}
@@ -95,7 +100,7 @@ async def quote(msg: Message, tail):
     name = await handle_name(msg, name)
     if name == None: return
 
-    filename = name + "quotes.txt"
+    filename = generate_quote_path(name)
     with open(filename, 'r') as f:
         qs = [strip_endline(q) for q in f]
     await send(msg, f"{name}: \"{choice(qs)}\"")
@@ -127,7 +132,7 @@ async def addquote(msg: Message, tail):
     if name == None: return
 
     quote = " ".join(quotelist)
-    filename = name + "quotes.txt"
+    filename = generate_quote_path(name)
     with open(filename, 'a') as f:
         f.write("\n")
         f.write(quote)
@@ -140,7 +145,7 @@ async def quotestats(msg: Message, tail):
     name = await handle_name(msg, name)
     if name == None: return
 
-    filename = name + "quotes.txt"
+    filename = generate_quote_path(name)
     with open(filename, 'r') as f:
         qs = [strip_endline(q) for q in f]
     count = len(qs)
