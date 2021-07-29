@@ -1,4 +1,5 @@
-
 .env
-zero_ai_env
+env
 *.txt
+tempCodeRunnerFile.py
+__pycache__/

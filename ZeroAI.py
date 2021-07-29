@@ -1,9 +1,10 @@
 import discord
+from discord import Message
 from os import getenv
 from dotenv import load_dotenv
 
 from random import choice, random
-from storage import read_users, save_user
+from storage import UserData, read_users, save_user, write_users
 
 COMMAND_CHARACTER = '!'
 
@@ -11,7 +12,7 @@ lads = {"finegold", "gotham", "jamie", "kit", "mike", "cosmo",
         "edward", "marina", "tegan", "elyn", "roman", "adam", 
         "cameron", "kim"}
 
-usermap = read_users()
+userset = read_users()
 
 HELP_TEXT = """My commands are:
 play [ttt, tictactoe, tic-tac-toe, noughts-and-crosses]
@@ -44,7 +45,7 @@ async def map_uid_to_handle(uid: str):
     return user.name + "#" + user.discriminator
 
 @client.event
-async def on_message(msg):
+async def on_message(msg: Message):
     if msg.author == client.user: return
 
     lead_char, cmd = process(msg.content)
@@ -56,52 +57,102 @@ async def on_message(msg):
     head, *tail = cmd
 
     if head == "pieces":
-        pieces = ["pawn", "knight", "bishop", "rook", "queen", "king"]
-        content = ", ".join([choice(pieces) for i in range(3)])
-        await send(msg, content)
+        await pieces(msg)
     if head == "quote":
-        assert len(tail) >= 1
-        name, *_ = tail
-        filename = name + "quotes.txt"
-        with open(filename, 'r') as f:
-            qs = [strip_endline(q) for q in f]
-        await send(msg, f"{name}: \"{choice(qs)}\"")
+        await quote(msg, tail)
     if head == "addquote":
-        assert len(tail) >= 2
-        name, *quotelist = tail
-        assert name in lads or name == "me"
-        if name == "me":
-            name = usermap.get(msg.author, default="NO_PERSON")
-        if name == "NO_PERSON" or name not in lads: return
-        quote = " ".join(quotelist)
-        filename = name + "quotes.txt"
-        with open(filename, 'a') as f:
-            f.write("\n")
-            f.write(quote)
-        await send(msg, f"added quote \"{quote}\" to file {filename}")
-    if head == "adduser":
-        assert len(tail) == 2
-        name, uid = tail
-        if uid == "me": 
-            save_user(msg.author, name)
-        else: 
-            handle = await map_uid_to_handle(uid)
-            save_user(handle, name)
+        await addquote(msg, tail)
     if head == "quotestats":
-        assert len(tail) >= 1
-        name, *_ = tail
-        filename = name + "quotes.txt"
-        with open(filename, 'r') as f:
-            qs = [strip_endline(q) for q in f]
-        count = len(qs)
-        avglen = int(sum(map(len, qs)) / count + 0.5)
-        await send(msg, f"{name} has {count} quotes, with an average quote length of {avglen}.")
+        await quotestats(msg, tail)
     if head == "ballsdeep":
-        await send(msg, "[SUCCESSFULLY HACKED FBI - BLOWING UP COMPUTER]")
-        for i in range(5, 0, -1):
-            await send(msg, f"{i}")
+        await ballsdeep(msg)
+    if head == "joinme":
+        await associate_user_with_id(msg, tail)
 
-async def send(message, text):
+async def pieces(msg: Message):
+    pieces = ["pawn", "knight", "bishop", "rook", "queen", "king"]
+    content = ", ".join([choice(pieces) for i in range(3)])
+    await send(msg, content)
+
+async def associate_user_with_id(msg: Message, tail):
+    if not len(tail) >= 1:
+        await send(msg, "You have to specify a name for !joinme to work.")
+        return
+    name, *_ = tail
+    
+    ud = UserData(name, msg.author.name, msg.author.discriminator)
+    userset.discard(ud)
+    userset.add(ud)
+
+    await send(msg, f"Saving {name}'s associated account as {msg.author.name}#{msg.author.discriminator}")
+
+    write_users(userset)
+
+async def quote(msg: Message, tail):
+    assert len(tail) >= 1
+    name, *_ = tail
+
+    name = await handle_name(msg, name)
+    if name == None: return
+
+    filename = name + "quotes.txt"
+    with open(filename, 'r') as f:
+        qs = [strip_endline(q) for q in f]
+    await send(msg, f"{name}: \"{choice(qs)}\"")
+
+async def handle_name(msg, name):
+    if name == "me":
+        name = user_find(msg.author.name, msg.author.discriminator)
+
+    if name == None or name not in lads:
+        if name != None:
+            await send(msg, f"\"{name}\" is not in my list of users. Use !joinme {name} if you are {name} and want to be added.")
+        else:
+            await send(msg, "I don't know who you are. Use !joinme [name] if you want to be added.")
+        return
+    return name
+
+
+def user_find(username, discriminator):
+    for u in userset:
+        if u.username == username and u.code == discriminator:
+            return u.name
+    return None
+
+async def addquote(msg: Message, tail):
+    assert len(tail) >= 2
+    name, *quotelist = tail
+
+    name = await handle_name(msg, name)
+    if name == None: return
+
+    quote = " ".join(quotelist)
+    filename = name + "quotes.txt"
+    with open(filename, 'a') as f:
+        f.write("\n")
+        f.write(quote)
+    await send(msg, f"added quote \"{quote}\" to file {filename}")
+
+async def quotestats(msg: Message, tail):
+    assert len(tail) >= 1
+    name, *_ = tail
+
+    name = await handle_name(msg, name)
+    if name == None: return
+
+    filename = name + "quotes.txt"
+    with open(filename, 'r') as f:
+        qs = [strip_endline(q) for q in f]
+    count = len(qs)
+    avglen = int(sum(map(len, qs)) / count + 0.5)
+    await send(msg, f"{name} has {count} quotes, with an average quote length of {avglen}.")
+
+async def ballsdeep(msg: Message):
+    await send(msg, "[SUCCESSFULLY HACKED FBI - BLOWING UP COMPUTER]")
+    for i in range(5, 0, -1):
+        await send(msg, f"{i}")
+
+async def send(message: Message, text):
     await message.channel.send(text)
 
 def choose_three_pieces():
