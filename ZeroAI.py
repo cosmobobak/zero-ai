@@ -188,7 +188,7 @@ def character_distance(a: str, b: str) -> int:
     """
     count = 0
     for x in difflib.Differ().compare(f"{a}\n", f"{b}\n"):
-        print(x)
+        if x[0] == ' ': continue
         count += 1
     return count
 
