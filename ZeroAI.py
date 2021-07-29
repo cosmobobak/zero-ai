@@ -1,5 +1,5 @@
 import discord
-import regex
+import difflib
 from discord import Message
 from os import getenv
 from dotenv import load_dotenv
@@ -180,6 +180,14 @@ def user_find(username, discriminator):
             return u.name
     return None
 
+
+def character_distance(a: str, b: str) -> int:
+    """
+    Returns the number of changes that must be made to convert
+    string a to string b.
+    """
+    return sum(1 for _ in difflib.Differ().compare(a, b))
+
 async def addquote(msg: Message, tail):
     """
     Usage:
@@ -201,7 +209,8 @@ async def addquote(msg: Message, tail):
         qs = (strip_endline(q) for q in f)
         for q in qs:
             # check if the quote is similar to q
-            if regex.search(r'(%s){e<=2}' % q, quote):
+            diff = character_distance(quote.lower(), q.lower())
+            if diff <= 2:
                 await send(msg, f"Quote already exists in {name}'s list of quotes.")
                 return
 
