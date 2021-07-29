@@ -186,7 +186,11 @@ def character_distance(a: str, b: str) -> int:
     Returns the number of changes that must be made to convert
     string a to string b.
     """
-    return sum(1 for _ in difflib.Differ().compare(a, b))
+    count = 0
+    for x in difflib.Differ().compare(f"{a}\n", f"{b}\n"):
+        print(x)
+        count += 1
+    return count
 
 async def addquote(msg: Message, tail):
     """
