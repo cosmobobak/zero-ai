@@ -67,14 +67,24 @@ async def on_message(msg: Message):
     if head == "ballsdeep":
         await ballsdeep(msg)
     if head == "joinme":
-        await associate_user_with_id(msg, tail)
+        await joinme(msg, tail)
 
 async def pieces(msg: Message):
+    """
+    Usage:
+    !pieces
+    sends three random pieces.
+    """
     pieces = ["pawn", "knight", "bishop", "rook", "queen", "king"]
     content = ", ".join([choice(pieces) for i in range(3)])
     await send(msg, content)
 
-async def associate_user_with_id(msg: Message, tail):
+async def joinme(msg: Message, tail):
+    """
+    Usage:
+    !joinme [name]
+    Adds a user to the list of known users.
+    """
     if not len(tail) >= 1:
         await send(msg, "You have to specify a name for !joinme to work.")
         return
@@ -88,12 +98,29 @@ async def associate_user_with_id(msg: Message, tail):
 
     write_users(userset)
 
-async def quote(msg: Message, tail):
-    assert len(tail) >= 1
-    name, *_ = tail
 
-    name = await handle_name(msg, name)
-    if name == None: return
+async def quote(msg: Message, tail):
+    """
+    Usage:
+    !quote [name (optional)] [num (optional)]
+    Sends a random quote from a random user. If num is specified,
+    it will send [num] random quotes from the specified user.
+    """
+
+    if len (tail) == 2:
+        name, num, *_ = tail
+        num = int(num)
+        for _ in range(num):
+            await quote(msg, [name])
+        return
+
+    if len(tail) == 0:
+        name = choice(list(userset)).name
+    else:
+        name, *_ = tail
+
+        name = await handle_name(msg, name)
+        if name == None: return
 
     filename = name + "quotes.txt"
     with open(filename, 'r') as f:
@@ -101,6 +128,10 @@ async def quote(msg: Message, tail):
     await send(msg, f"{name}: \"{choice(qs)}\"")
 
 async def handle_name(msg, name):
+    """
+    Converts a user-entered name into a name that can be used for quote lookup.
+    """
+
     if name == "me":
         name = user_find(msg.author.name, msg.author.discriminator)
 
@@ -114,13 +145,25 @@ async def handle_name(msg, name):
 
 
 def user_find(username, discriminator):
+    """
+    Finds a user by name and discriminator. (user#0000)
+    """
+
     for u in userset:
         if u.username == username and u.code == discriminator:
             return u.name
     return None
 
 async def addquote(msg: Message, tail):
-    assert len(tail) >= 2
+    """
+    Usage:
+    !addquote [name] quote...
+    Adds a quote to the specified user's list of quotes.
+    """
+    if len(tail) < 2:
+        await send(msg, "You have to specify a name and a quote (of at least one word) to add.")
+        return
+    
     name, *quotelist = tail
 
     name = await handle_name(msg, name)
@@ -134,7 +177,16 @@ async def addquote(msg: Message, tail):
     await send(msg, f"added quote \"{quote}\" to file {filename}")
 
 async def quotestats(msg: Message, tail):
-    assert len(tail) >= 1
+    """
+    Usage:
+    !quotestats [name]
+    Prints information about the quotes in the specified user's list.
+    """
+
+    if len(tail) < 1:
+        await send(msg, "You have to specify a name to get quote stats for.")
+        return
+    
     name, *_ = tail
 
     name = await handle_name(msg, name)
@@ -148,15 +200,20 @@ async def quotestats(msg: Message, tail):
     await send(msg, f"{name} has {count} quotes, with an average quote length of {avglen}.")
 
 async def ballsdeep(msg: Message):
+    """
+    Usage:
+    !ballsdeep
+    This is a dumb function.
+    """
     await send(msg, "[SUCCESSFULLY HACKED FBI - BLOWING UP COMPUTER]")
     for i in range(5, 0, -1):
         await send(msg, f"{i}")
 
 async def send(message: Message, text):
+    """
+    A simpler send function.
+    """
     await message.channel.send(text)
-
-def choose_three_pieces():
-    return ", ".join([choice(["pawn", "knight", "bishop", "rook", "queen", "king"]) for _ in range(3)])
 
 if __name__ == "__main__":
     client.run(token)
