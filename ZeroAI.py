@@ -1,4 +1,5 @@
 import discord
+import regex
 from discord import Message
 from os import getenv
 from dotenv import load_dotenv
@@ -193,6 +194,14 @@ async def addquote(msg: Message, tail):
 
     quote = " ".join(quotelist)
     filename = generate_quote_path(name)
+    with open(filename, 'r') as f:
+        qs = (strip_endline(q) for q in f)
+        for q in qs:
+            # check if the quote is similar to q
+            if regex.search(r'(%s){e<=2}' % q, quote):
+                await send(msg, f"Quote already exists in {name}'s list of quotes.")
+                return
+
     with open(filename, 'a') as f:
         f.write("\n")
         f.write(quote)
