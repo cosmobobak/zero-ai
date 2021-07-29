@@ -8,7 +8,8 @@ from storage import read_users, save_user
 COMMAND_CHARACTER = '!'
 
 lads = {"finegold", "gotham", "jamie", "kit", "mike", "cosmo",
-        "edward", "marina", "tegan", "elyn", "roman", "adam"}
+        "edward", "marina", "tegan", "elyn", "roman", "adam", 
+        "cameron", "kim"}
 
 usermap = read_users()
 
