@@ -214,7 +214,7 @@ async def addquote(msg: Message, tail):
         for q in qs:
             # check if the quote is similar to q
             diff = character_distance(quote.lower(), q.lower())
-            print(f"{quote.lower()} | {q.lower()} {diff = }")
+            # print(f"{quote.lower()} | {q.lower()} {diff = }")
             if diff <= 2:
                 await send(msg, f"Quote already exists in {name}'s list of quotes.")
                 return
