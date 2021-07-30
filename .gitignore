@@ -3,3 +3,5 @@ env
 *.txt
 tempCodeRunnerFile.py
 __pycache__/
+nohup.out
+users.txt
