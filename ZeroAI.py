@@ -1,3 +1,4 @@
+from typing import Optional
 import discord
 import difflib
 from discord import Message
@@ -99,7 +100,7 @@ async def pieces(msg: Message):
     sends three random pieces.
     """
     pieces = ["pawn", "knight", "bishop", "rook", "queen", "king"]
-    content = ", ".join([choice(pieces) for i in range(3)])
+    content = ", ".join([choice(pieces) for _ in range(3)])
     await send(msg, content)
 
 async def joinme(msg: Message, tail):
@@ -130,7 +131,7 @@ async def quote(msg: Message, tail):
     it will send [num] random quotes from the specified user.
     """
 
-    if len (tail) == 2:
+    if len(tail) == 2:
         name, num, *_ = tail
         num = int(num)
         if num > 5:
@@ -153,20 +154,24 @@ async def quote(msg: Message, tail):
         qs = [strip_endline(q) for q in f]
     await send(msg, f"{name}: \"{choice(qs)}\"")
 
-async def handle_name(msg, name):
+
+async def handle_name(msg, name: "Optional[str]") -> "Optional[str]":
     """
     Converts a user-entered name into a name that can be used for quote lookup.
     """
 
     if name == "me":
         name = user_find(msg.author.name, msg.author.discriminator)
+    if name == "anyone":
+        name = weighted_choice(user_quote_distribution)
 
-    if name == None or name not in lads:
-        if name != None:
-            await send(msg, f"\"{name}\" is not in my list of users. Use !joinme {name} if you are {name} and want to be added.")
-        else:
-            await send(msg, "I don't know who you are. Use !joinme [name] if you want to be added.")
-        return
+    if name not in lads:
+        await send(msg, f"\"{name}\" is not in my list of users. Use !joinme {name} if you are {name} and want to be added.")
+        return None
+    elif name == None:
+        await send(msg, "I don't know who you are. Use !joinme [name] if you want to be added.")
+        return None
+
     return name
 
 
