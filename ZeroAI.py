@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 from random import choice, random
 from storage import UserData, compute_quote_distribution, read_users, save_user, write_users
 
+# TODO: Add a feature that reduces immediate repetitions of quotes.
+
 COMMAND_CHARACTER = '!'
 
 QUOTEPATH = "quotes/"
@@ -113,7 +115,7 @@ async def joinme(msg: Message, tail):
         await send(msg, "You have to specify a name for !joinme to work.")
         return
     name, *_ = tail
-    
+
     ud = UserData(name, msg.author.name, msg.author.discriminator)
     userset.discard(ud)
     userset.add(ud)
