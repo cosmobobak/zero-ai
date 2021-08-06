@@ -157,6 +157,7 @@ async def quote(msg: Message, tail):
     await send(msg, f"{name}: \"{choice(qs)}\"")
 
 
+
 async def handle_name(msg, name: "Optional[str]") -> "Optional[str]":
     """
     Converts a user-entered name into a name that can be used for quote lookup.
@@ -223,8 +224,12 @@ async def addquote(msg: Message, tail):
             diff = character_distance(quote.lower(), q.lower())
             # print(f"{quote.lower()} | {q.lower()} {diff = }")
             if diff <= 2:
-                await send(msg, f"Quote already exists in {name}'s list of quotes.")
+                await send(msg, f"Not adding quote: Quote already exists in {name}'s list of quotes.")
                 return
+
+    if "@" in quote:
+        await send(msg, "Not adding quote: Quote contains an '@' character, which is not allowed.")
+        return
 
     with open(filename, 'a') as f:
         f.write("\n")
