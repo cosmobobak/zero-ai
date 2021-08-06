@@ -1,3 +1,4 @@
+import asyncio
 from typing import Optional
 import discord
 import difflib
@@ -11,7 +12,7 @@ from storage import UserData, compute_quote_distribution, read_users, save_user,
 # TODO: Add a feature that reduces immediate repetitions of quotes.
 
 COMMAND_CHARACTER = '!'
-
+MAX_QUOTE_LENGTH = 1500
 QUOTEPATH = "quotes/"
 
 def generate_quote_path(name: str) -> str:
@@ -88,6 +89,8 @@ async def on_message(msg: Message):
         await quote(msg, tail)
     if head == "addquote":
         await addquote(msg, tail)
+    if head in ("rmquote", "removequote"):
+        await rmquote(msg, tail)
     if head == "quotestats":
         await quotestats(msg, tail)
     if head == "ballsdeep":
@@ -219,22 +222,67 @@ async def addquote(msg: Message, tail):
     filename = generate_quote_path(name)
     with open(filename, 'r') as f:
         qs = (strip_endline(q) for q in f)
-        for q in qs:
-            # check if the quote is similar to q
-            diff = character_distance(quote.lower(), q.lower())
-            # print(f"{quote.lower()} | {q.lower()} {diff = }")
-            if diff <= 2:
-                await send(msg, f"Not adding quote: Quote already exists in {name}'s list of quotes.")
-                return
+        diffs = (character_distance(quote.lower(), q.lower()) for q in qs)
+        preds = (d <= 2 for d in diffs)
+        if any(preds):
+            await send(msg, f"\"{quote}\" is already in the list of quotes for {name}.")
+            return
 
     if "@" in quote:
         await send(msg, "Not adding quote: Quote contains an '@' character, which is not allowed.")
         return
 
+    if len(quote) > MAX_QUOTE_LENGTH:
+        await send(msg, f"\"{quote}\" is too long. Maximum is {MAX_QUOTE_LENGTH} characters.")
+
     with open(filename, 'a') as f:
         f.write("\n")
         f.write(quote)
     await send(msg, f"added quote \"{quote}\" to file {filename}")
+
+async def rmquote(msg, tail):
+    """
+    Usage:
+    !rmquote [name] [quote]
+    Removes the quote most similar to the one specified.
+    """
+    if len(tail) < 2:
+        await send(msg, "You have to specify a name and a quote (of at least one word) to remove.")
+        return
+
+    name, *quotelist = tail
+
+    name = await handle_name(msg, name)
+    if name == None: return
+
+    quote = " ".join(quotelist)
+    filename = generate_quote_path(name)
+    with open(filename, 'r') as f:
+        qs = [strip_endline(q) for q in f]
+    diffs = {q: character_distance(quote.lower(), q.lower()) for q in qs}
+    closest = min(diffs, key=lambda x: diffs[x])
+    if diffs[closest] == 0:
+        await send(msg, f"Removing quote.")
+    else: 
+        await send(msg, f"Closest match found: \"{closest[:1000]}\"")
+        await send(msg, "Remove this quote? (y/n)")
+        do_remove = await get_yes_no(msg)
+        if not do_remove:
+            await send(msg, "Not removing quote.")
+            return
+
+    with open(filename, 'r') as f:
+        lines = [strip_endline(q) for q in f]
+    with open(filename, 'w') as f:
+        for line in filter(lambda q: q != closest, lines):
+            f.write(f"{line}\n")
+
+    # check the file has actually had the quote removed
+    with open(filename, 'r') as f:
+        qs = [strip_endline(q) for q in f]
+        assert closest not in qs
+
+    await send(msg, f"removed quote \"{closest[:1000]}\" from file {filename}")
 
 async def quotestats(msg: Message, tail):
     """
@@ -274,6 +322,23 @@ async def send(message: Message, text):
     A simpler send function.
     """
     await message.channel.send(text)
+
+
+async def get_yes_no(message: Message, timeout=10) -> bool:
+    """
+    Checks if a user responded with either 'y' or 'n'.
+    False on timeout.
+    """
+    def check(msg):
+        return msg.content.lower() in ('y', 'n')
+    
+    try:
+        result = await client.wait_for('message', check=check, timeout=timeout)
+        return result.content.lower() == 'y'
+    except asyncio.TimeoutError:
+        await send(message, "Answer timed out.")
+        return False
+
 
 if __name__ == "__main__":
     client.run(token)
