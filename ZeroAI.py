@@ -225,7 +225,7 @@ async def addquote(msg: Message, tail):
         diffs = (character_distance(quote.lower(), q.lower()) for q in qs)
         preds = (d <= 2 for d in diffs)
         if any(preds):
-            await send(msg, f"\"{quote}\" is already in the list of quotes for {name}.")
+            await send(msg, f"Not adding quote: is already in the list of quotes for {name}.")
             return
 
     if "@" in quote:
@@ -233,7 +233,8 @@ async def addquote(msg: Message, tail):
         return
 
     if len(quote) > MAX_QUOTE_LENGTH:
-        await send(msg, f"\"{quote}\" is too long. Maximum is {MAX_QUOTE_LENGTH} characters.")
+        await send(msg, f"Not adding quote: Quote is too long. Maximum is {MAX_QUOTE_LENGTH} characters.")
+        return
 
     with open(filename, 'a') as f:
         f.write("\n")
