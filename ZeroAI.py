@@ -128,12 +128,13 @@ async def joinme(msg: Message, tail):
     write_users(userset)
 
 
-async def quote(msg: Message, tail):
+async def quote(msg: Message, tail) -> bool:
     """
     Usage:
     !quote [name (optional)] [num (optional)]
     Sends a random quote from a random user. If num is specified,
     it will send [num] random quotes from the specified user.
+    Returns a boolean to indicate success or failiure.
     """
 
     if len(tail) == 2:
@@ -141,10 +142,12 @@ async def quote(msg: Message, tail):
         num = int(num)
         if num > 5:
             await send(msg, "You may only request up to five sequential quotes.")
-            return
+            return False
         for _ in range(num):
-            await quote(msg, [name])
-        return
+            result = await quote(msg, [name])
+            if not result:
+                return False
+        return True
 
     if len(tail) == 0:
         name = weighted_choice(user_quote_distribution)
@@ -152,14 +155,13 @@ async def quote(msg: Message, tail):
         name, *_ = tail
 
         name = await handle_name(msg, name)
-        if name == None: return
+        if name == None: return False
 
     filename = generate_quote_path(name)
     with open(filename, 'r') as f:
         qs = [strip_endline(q) for q in f]
     await send(msg, f"{name}: \"{choice(qs)}\"")
-
-
+    return True
 
 async def handle_name(msg, name: "Optional[str]") -> "Optional[str]":
     """
