@@ -7,7 +7,7 @@ from os import getenv
 from dotenv import load_dotenv
 
 from random import choice, random
-from storage import UserData, compute_quote_distribution, read_users, save_user, write_users
+from storage import UserData, compute_quote_distribution, read_users, write_users
 
 # TODO: Add a feature that reduces immediate repetitions of quotes.
 

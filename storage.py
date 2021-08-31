@@ -38,16 +38,11 @@ def read_users() -> "set[UserData]":
 def write_users(users: "set[UserData]") -> None:
     # Writes the users.txt file
     with open("users.txt", 'w') as f:
-        for user in users:
+        for user in sorted(users, key=lambda u: u.name):
             if user.isnull:
                 f.write(f"{user.name}:null\n")
             else:
                 f.write(f"{user.name}:{user.username}#{user.code}\n")
-
-def save_user(uid: str, name: str):
-    with open("users.txt", 'a') as f:
-        f.write(f"{uid} {name}\n")
-
 
 def compute_quote_distribution() -> "dict[str, int]":
     # Reads the users file, and then for each user, counts how many quotes they have
