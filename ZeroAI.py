@@ -326,7 +326,6 @@ async def send(message: Message, text):
     """
     await message.channel.send(text)
 
-
 async def get_yes_no(message: Message, timeout=10) -> bool:
     """
     Checks if a user responded with either 'y' or 'n'.
