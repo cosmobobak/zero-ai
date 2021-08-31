@@ -55,3 +55,8 @@ def compute_quote_distribution() -> "dict[str, int]":
         with open(f"quotes/{user.name}quotes.txt", 'r') as f:
             quote_distribution[user.name] = len(f.readlines())
     return quote_distribution
+
+def get_all_quotes(user: str) -> "list[str]":
+    # Reads the quotes.txt file and returns a list of all the quotes for the user
+    with open(f"quotes/{user}quotes.txt", 'r') as f:
+        return f.readlines()

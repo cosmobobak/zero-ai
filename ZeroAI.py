@@ -5,9 +5,10 @@ import difflib
 from discord import Message
 from os import getenv
 from dotenv import load_dotenv
+from itertools import chain
 
 from random import choice, random
-from storage import UserData, compute_quote_distribution, read_users, write_users
+from storage import UserData, compute_quote_distribution, get_all_quotes, read_users, write_users
 
 # TODO: Add a feature that reduces immediate repetitions of quotes.
 
@@ -97,6 +98,8 @@ async def on_message(msg: Message):
         await ballsdeep(msg)
     if head == "joinme":
         await joinme(msg, tail)
+    if head == "ag":
+        await ag(msg, tail)
 
 async def pieces(msg: Message):
     """
@@ -309,6 +312,46 @@ async def quotestats(msg: Message, tail):
     count = len(qs)
     avglen = int(sum(map(len, qs)) / count + 0.5)
     await send(msg, f"{name} has {count} quotes, with an average quote length of {avglen}.")
+
+async def ag(msg: Message, tail):
+    """
+    Usage:
+    !ag [quote fragment] [num]
+    Searches all quotes for the specified quote fragment and returns the N quotes with the highest similarity.
+    """
+    if tail == []:
+        await send(msg, "You have to specify a fragment to search for.")
+        return
+
+    if len(tail) >= 2:
+        fragment, strnum, *_ = tail
+        num = int(strnum)
+    else:
+        fragment, *_ = tail
+        num = 1
+    
+    if num < 1 or num > 10:
+        await send(msg, "You have to specify a number greater than 0 and at most 10.")
+        return
+
+    allquotes = chain.from_iterable((map(lambda n: (u.name, n), get_all_quotes(u.name))) for u in userset)
+
+    # find all the quotes that contain the fragment
+    matches = (q for q in allquotes if fragment.lower() in q[1].lower())
+
+    # sort the matches by similarity
+    matches = sorted(matches, key=lambda q: character_distance(fragment.lower(), q[1].lower()))
+
+    # return the top N matches
+    matches = matches[:num]
+
+    # format the matches into a string for sending
+    matches = "\n".join(f"{i+1}. {q[0]}: {q[1].strip()}" for i, q in enumerate(matches))
+
+    if len(matches) == 0:
+        await send(msg, "No matches found.")
+    else:
+        await send(msg, f"Found {num} matches for \"{fragment}\":\n{matches}")
 
 async def ballsdeep(msg: Message):
     """
