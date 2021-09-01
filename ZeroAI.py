@@ -334,6 +334,7 @@ async def ag(msg: Message, tail):
         await send(msg, "You have to specify a number greater than 0 and at most 10.")
         return
 
+    # grab all quotes from all files
     allquotes = chain.from_iterable((map(lambda n: (u.name, n), get_all_quotes(u.name))) for u in userset)
 
     # find all the quotes that contain the fragment
@@ -342,7 +343,10 @@ async def ag(msg: Message, tail):
     # sort the matches by similarity
     matches = sorted(matches, key=lambda q: character_distance(fragment.lower(), q[1].lower()))
 
-    # return the top N matches
+    # re-sort the matches by exact word match
+    matches = sorted(matches, key=lambda q: 0 if f" {fragment} " in q[1] else 1)
+
+    # select the first N matches
     matches = matches[:num]
 
     # format the matches into a string for sending
