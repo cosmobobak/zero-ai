@@ -346,12 +346,12 @@ async def ag(msg: Message, tail):
     matches = matches[:num]
 
     # format the matches into a string for sending
-    matches = "\n".join(f"{i+1}. {q[0]}: {q[1].strip()}" for i, q in enumerate(matches))
+    matchstr = "\n".join(f"{i+1}. {q[0]}: {q[1].strip()}" for i, q in enumerate(matches))
 
     if len(matches) == 0:
         await send(msg, "No matches found.")
     else:
-        await send(msg, f"Found {num} matches for \"{fragment}\":\n{matches}")
+        await send(msg, f"Found {len(matches)} matches for \"{fragment}\":\n{matchstr}")
 
 async def ballsdeep(msg: Message):
     """
