@@ -355,7 +355,8 @@ async def ag(msg: Message, tail):
     if len(matches) == 0:
         await send(msg, "No matches found.")
     else:
-        await send(msg, f"Found {len(matches)} matches for \"{fragment}\":\n{matchstr}")
+        suffix = 'es' if len(matches) != 1 else ''
+        await send(msg, f"Found {len(matches)} match{suffix} for \"{fragment}\":\n{matchstr}")
 
 async def ballsdeep(msg: Message):
     """
