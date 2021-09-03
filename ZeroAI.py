@@ -1,4 +1,7 @@
 import asyncio
+
+from markovify.text import NewlineText
+from markov import generate_quote, regenerate_models
 from typing import Optional
 import discord
 import difflib
@@ -15,6 +18,10 @@ from storage import UserData, compute_quote_distribution, get_all_quotes, read_u
 COMMAND_CHARACTER = '!'
 MAX_QUOTE_LENGTH = 1500
 QUOTEPATH = "quotes/"
+
+REFRESH_MODEL_THRESHOLD = 30
+markov_models: "dict[str, NewlineText]" = dict()
+time_since_model_refresh: int = 0
 
 def generate_quote_path(name: str) -> str:
     return f"{QUOTEPATH}{name}quotes.txt"
@@ -98,8 +105,10 @@ async def on_message(msg: Message):
         await ballsdeep(msg)
     if head == "joinme":
         await joinme(msg, tail)
-    if head == "ag":
-        await ag(msg, tail)
+    if head == "search":
+        await search(msg, tail)
+    if head == "genquote":
+        await genquote(msg, tail)
 
 async def pieces(msg: Message):
     """
@@ -208,6 +217,10 @@ def character_distance(a: str, b: str) -> int:
         count += 1
     return count
 
+def inc_regen_quotes():
+    global time_since_model_refresh
+    time_since_model_refresh += 1
+
 async def addquote(msg: Message, tail):
     """
     Usage:
@@ -244,6 +257,9 @@ async def addquote(msg: Message, tail):
     with open(filename, 'a') as f:
         f.write("\n")
         f.write(quote)
+
+    inc_regen_quotes()
+
     await send(msg, f"added quote \"{quote}\" to file {filename}")
 
 async def rmquote(msg, tail):
@@ -313,7 +329,7 @@ async def quotestats(msg: Message, tail):
     avglen = int(sum(map(len, qs)) / count + 0.5)
     await send(msg, f"{name} has {count} quotes, with an average quote length of {avglen}.")
 
-async def ag(msg: Message, tail):
+async def search(msg: Message, tail):
     """
     Usage:
     !ag [quote fragment] [num]
@@ -357,6 +373,59 @@ async def ag(msg: Message, tail):
     else:
         suffix = 'es' if len(matches) != 1 else ''
         await send(msg, f"Found {len(matches)} match{suffix} for \"{fragment}\":\n{matchstr}")
+
+def maybe_regen_markov():
+    global markov_models
+    global time_since_model_refresh
+    do_regen = len(markov_models) == 0 or time_since_model_refresh > REFRESH_MODEL_THRESHOLD
+
+    if do_regen:
+        regenerate_models(markov_models, lads)
+        time_since_model_refresh = 0
+    else:
+        time_since_model_refresh += 1
+
+async def genquote(msg: Message, tail: "list[str]"):
+    """
+    Usage:
+    !genquote [name]
+    Generates a quote from the specified user's past quotes.
+    """
+    if len(tail) < 1:
+        await send(msg, "You have to specify a name to generate a quote from.")
+        return
+
+    if len(tail) == 2:
+        name, num, *_ = tail
+        num = int(num)
+        if num > 5:
+            await send(msg, "You may only request up to five sequential quotes.")
+            return False
+        for _ in range(num):
+            result = await genquote(msg, [name])
+            if not result:
+                return False
+        return True
+
+    name, *_ = tail
+
+    name = await handle_name(msg, name)
+    if name == None: return
+
+    maybe_regen_markov()
+
+    model = markov_models[name]
+
+    maybe_quote = generate_quote(model)
+
+    if maybe_quote is None:
+        await send(msg, "Insufficient data.")
+        return False
+
+    quote: str = maybe_quote
+
+    await send(msg, f"{name}: \"{quote}\"")
+    return True
 
 async def ballsdeep(msg: Message):
     """

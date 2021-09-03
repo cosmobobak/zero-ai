@@ -60,3 +60,8 @@ def get_all_quotes(user: str) -> "list[str]":
     # Reads the quotes.txt file and returns a list of all the quotes for the user
     with open(f"quotes/{user}quotes.txt", 'r') as f:
         return f.readlines()
+
+def read_raw_text(user: str) -> "str":
+    # Reads the quotes.txt file and returns the raw text for the user
+    with open(f"quotes/{user}quotes.txt", 'r') as f:
+        return f.read()
