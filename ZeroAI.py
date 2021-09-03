@@ -5,6 +5,7 @@ from markov import generate_quote, regenerate_models
 from typing import Optional
 import discord
 import difflib
+import markovify
 from discord import Message
 from os import getenv
 from dotenv import load_dotenv
@@ -22,6 +23,8 @@ QUOTEPATH = "quotes/"
 REFRESH_MODEL_THRESHOLD = 30
 markov_models: "dict[str, NewlineText]" = dict()
 time_since_model_refresh: int = 0
+
+hindsight = 1
 
 def generate_quote_path(name: str) -> str:
     return f"{QUOTEPATH}{name}quotes.txt"
@@ -105,10 +108,12 @@ async def on_message(msg: Message):
         await ballsdeep(msg)
     if head == "joinme":
         await joinme(msg, tail)
-    if head == "search":
-        await search(msg, tail)
+    if head in ("qs", "quotesearch"):
+        await quotesearch(msg, tail)
     if head == "genquote":
         await genquote(msg, tail)
+    if head == "sethindsight":
+        await sethindsight(msg, tail)
 
 async def pieces(msg: Message):
     """
@@ -329,7 +334,7 @@ async def quotestats(msg: Message, tail):
     avglen = int(sum(map(len, qs)) / count + 0.5)
     await send(msg, f"{name} has {count} quotes, with an average quote length of {avglen}.")
 
-async def search(msg: Message, tail):
+async def quotesearch(msg: Message, tail):
     """
     Usage:
     !ag [quote fragment] [num]
@@ -374,6 +379,19 @@ async def search(msg: Message, tail):
         suffix = 'es' if len(matches) != 1 else ''
         await send(msg, f"Found {len(matches)} match{suffix} for \"{fragment}\":\n{matchstr}")
 
+async def sethindsight(msg, tail):
+    global hindsight
+    strnum, *_ = tail
+    num = int(strnum)
+    if num < 1 or num > 3:
+        return
+    
+    hindsight = num
+
+    regenerate_models(markov_models, lads, hindsight)
+
+    await send(msg, f"Successfully set markov hindsight to {hindsight}")
+
 def maybe_regen_markov():
     global markov_models
     global time_since_model_refresh
@@ -384,6 +402,10 @@ def maybe_regen_markov():
         time_since_model_refresh = 0
     else:
         time_since_model_refresh += 1
+
+
+def everyone_model():
+    return markovify.combine([v for k, v in markov_models.items()])
 
 async def genquote(msg: Message, tail: "list[str]"):
     """
@@ -409,12 +431,16 @@ async def genquote(msg: Message, tail: "list[str]"):
 
     name, *_ = tail
 
-    name = await handle_name(msg, name)
-    if name == None: return
+    if name == "everyone":
+        maybe_regen_markov()
+        model = everyone_model()
+    else:
+        name = await handle_name(msg, name)
+        if name == None: return
 
-    maybe_regen_markov()
+        maybe_regen_markov()
 
-    model = markov_models[name]
+        model = markov_models[name]
 
     maybe_quote = generate_quote(model)
 
