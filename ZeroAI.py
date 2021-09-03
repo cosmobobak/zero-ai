@@ -111,7 +111,7 @@ async def pieces(msg: Message):
     content = ", ".join([choice(pieces) for _ in range(3)])
     await send(msg, content)
 
-async def joinme(msg: Message, tail):
+async def joinme(msg, tail):
     """
     Usage:
     !joinme [name]
