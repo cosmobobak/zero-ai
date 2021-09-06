@@ -33,6 +33,31 @@ lads = {"finegold", "gotham", "jamie", "kit", "mike", "cosmo",
         "edward", "marina", "tegan", "elyn", "roman", "adam", 
         "cameron", "kim"}
 
+ANSWERS = ["It is Certain.",
+           "It is decidedly so.",
+           "Without a doubt.",
+           "Yes definitely.",
+           "You may rely on it.",
+
+           "As I see it, yes.",
+           "Most likely.",
+           "Outlook good.",
+           "Yes.",
+           "Signs point to yes.",
+
+           "Reply hazy, try again.",
+           "Ask again later.",
+           "Better not tell you now.",
+           "Cannot predict now.",
+           "Concentrate and ask again.",
+
+           "Don't count on it.",
+           "My reply is no.",
+           "My sources say no.",
+           "Outlook not so good.",
+           "Very doubtful.",
+           ]
+
 user_quote_distribution: "dict[str, int]" = compute_quote_distribution()
 
 userset = read_users()
@@ -114,6 +139,8 @@ async def on_message(msg: Message):
         await genquote(msg, tail)
     if head == "sethindsight":
         await sethindsight(msg, tail)
+    if head == "8ball":
+        await eightball(msg, tail)
 
 async def pieces(msg: Message):
     """
@@ -452,6 +479,19 @@ async def genquote(msg: Message, tail: "list[str]"):
 
     await send(msg, f"{name}: \"{quote}\"")
     return True
+
+async def eightball(msg: Message, tail: "list[str]"):
+    """
+    Usage:
+    !8ball [question...]
+    Returns a random answer to the specified question.
+    """
+    if len(tail) < 1:
+        await send(msg, "You have to specify a question to ask the magic 8ball.")
+        return
+
+    question = " ".join(tail)
+    await send(msg, f"{question.strip('?\n ')}?\n🎱 {choice(ANSWERS)}")
 
 async def ballsdeep(msg: Message):
     """
