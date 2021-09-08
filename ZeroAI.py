@@ -66,10 +66,6 @@ user_quote_distribution: "dict[str, int]" = compute_quote_distribution()
 
 userset = read_users()
 
-HELP_TEXT = """My commands are:
-play [ttt, tictactoe, tic-tac-toe, noughts-and-crosses]
-play [chess]."""
-
 load_dotenv()
 
 token = getenv('TOKEN')
@@ -544,6 +540,10 @@ async def man(msg: Message, tail: "list[str]"):
             await send(msg, f"```{manual}```\nAliases: {', '.join(alias_list)}")
         else:
             await send(msg, f"```{manual}```")
+
+async def commands(msg: Message):
+    string = f"Commands:\n```{'\n'.join(manuals)}```"
+    await send(msg, string)
 
 async def send(message: Message, text):
     """
