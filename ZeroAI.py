@@ -31,7 +31,7 @@ def generate_quote_path(name: str) -> str:
 
 lads = {"finegold", "gotham", "jamie", "kit", "mike", "cosmo",
         "edward", "marina", "tegan", "elyn", "roman", "adam", 
-        "cameron", "kim"}
+        "cameron", "kim", "henry"}
 
 ANSWERS = ["It is Certain.",
            "It is decidedly so.",
@@ -491,7 +491,8 @@ async def eightball(msg: Message, tail: "list[str]"):
         return
 
     question = " ".join(tail)
-    await send(msg, f"{question.strip('?\n ')}?\n🎱 {choice(ANSWERS)}")
+    qres = question.strip('?\n ')
+    await send(msg, f"{qres}?\n🎱 {choice(ANSWERS)}")
 
 async def ballsdeep(msg: Message):
     """
