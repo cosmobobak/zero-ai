@@ -11,7 +11,7 @@ from os import getenv
 from dotenv import load_dotenv
 from itertools import chain
 
-from random import choice, random
+from random import choice, sample, random
 from storage import UserData, compute_quote_distribution, get_all_quotes, read_users, write_users
 
 # TODO: Add a feature that reduces immediate repetitions of quotes.
@@ -25,6 +25,8 @@ markov_models: "dict[str, NewlineText]" = dict()
 time_since_model_refresh: int = 0
 
 hindsight = 1
+
+manuals: "dict[str, str]" = dict()
 
 def generate_quote_path(name: str) -> str:
     return f"{QUOTEPATH}{name}quotes.txt"
@@ -74,7 +76,7 @@ client = discord.Client()
 
 @client.event
 async def on_ready():
-    print('We have logged in as {0.user}'.format(client))
+    print(f'We have logged in as {client.user}')
 
 def weighted_choice(distribution_dict: "dict[str, int]") -> str:
     """
@@ -142,22 +144,23 @@ async def on_message(msg: Message):
     if head == "8ball":
         await eightball(msg, tail)
 
+manuals["pieces"] = """
+Usage:
+`!pieces`
+chooses three random chess pieces.
+intended to be used to play a chess variant.
+"""
 async def pieces(msg: Message):
-    """
-    Usage:
-    !pieces
-    sends three random pieces.
-    """
     pieces = ["pawn", "knight", "bishop", "rook", "queen", "king"]
-    content = ", ".join([choice(pieces) for _ in range(3)])
-    await send(msg, content)
+    a, b, c = sample(pieces, 3)
+    await send(msg, f"pieces: {a}, {b}, {c}")
 
+manuals["joinme"] = """
+Usage:
+`!joinme [name]`
+Adds a user to the list of known users.
+"""
 async def joinme(msg, tail):
-    """
-    Usage:
-    !joinme [name]
-    Adds a user to the list of known users.
-    """
     if not len(tail) >= 1:
         await send(msg, "You have to specify a name for !joinme to work.")
         return
@@ -171,16 +174,14 @@ async def joinme(msg, tail):
 
     write_users(userset)
 
-
+manuals["quote"] = """
+Usage:
+`!quote [name (optional)] [num (optional)]`
+Sends a random quote from a user. If num is specified,
+it will send [num] random quotes from the specified user.
+Not specifying user is equivalent to `!quote anyone`.
+"""
 async def quote(msg: Message, tail) -> bool:
-    """
-    Usage:
-    !quote [name (optional)] [num (optional)]
-    Sends a random quote from a random user. If num is specified,
-    it will send [num] random quotes from the specified user.
-    Returns a boolean to indicate success or failiure.
-    """
-
     if len(tail) == 2:
         name, num, *_ = tail
         num = int(num)
@@ -253,12 +254,13 @@ def inc_regen_quotes():
     global time_since_model_refresh
     time_since_model_refresh += 1
 
+
+manuals["addquote"] = """
+Usage:
+`!addquote [name] [quote...]`
+Adds a quote to the specified user's list of quotes.
+"""
 async def addquote(msg: Message, tail):
-    """
-    Usage:
-    !addquote [name] quote...
-    Adds a quote to the specified user's list of quotes.
-    """
     if len(tail) < 2:
         await send(msg, "You have to specify a name and a quote (of at least one word) to add.")
         return
@@ -294,12 +296,13 @@ async def addquote(msg: Message, tail):
 
     await send(msg, f"added quote \"{quote}\" to file {filename}")
 
+manuals["rmquote"] = """
+Usage:
+!rmquote [name] [quote...]
+Finds the quote most similar to the one specified, then deletes it if it is an exact match.
+If the quote is not an exact match, you will be prompted to confirm deletion.
+"""
 async def rmquote(msg, tail):
-    """
-    Usage:
-    !rmquote [name] [quote]
-    Removes the quote most similar to the one specified.
-    """
     if len(tail) < 2:
         await send(msg, "You have to specify a name and a quote (of at least one word) to remove.")
         return
@@ -338,13 +341,12 @@ async def rmquote(msg, tail):
 
     await send(msg, f"removed quote \"{closest[:1000]}\" from file {filename}")
 
+manuals["quotestats"] = """
+Usage:
+!quotestats [name]
+Prints information about the quotes in the specified user's list.
+"""
 async def quotestats(msg: Message, tail):
-    """
-    Usage:
-    !quotestats [name]
-    Prints information about the quotes in the specified user's list.
-    """
-
     if len(tail) < 1:
         await send(msg, "You have to specify a name to get quote stats for.")
         return
@@ -361,12 +363,15 @@ async def quotestats(msg: Message, tail):
     avglen = int(sum(map(len, qs)) / count + 0.5)
     await send(msg, f"{name} has {count} quotes, with an average quote length of {avglen}.")
 
+manuals["quotesearch"] = """
+Usage:
+!quotesearch [quote fragment] [num]
+Searches all quotes for the specified quote fragment and returns the N quotes with the highest similarity.
+Ping cosmo to make this work with quote fragments that contain spaces.
+"""
+# TODO: make this work with quotes that contain spaces
 async def quotesearch(msg: Message, tail):
-    """
-    Usage:
-    !ag [quote fragment] [num]
-    Searches all quotes for the specified quote fragment and returns the N quotes with the highest similarity.
-    """
+    
     if tail == []:
         await send(msg, "You have to specify a fragment to search for.")
         return
@@ -406,6 +411,12 @@ async def quotesearch(msg: Message, tail):
         suffix = 'es' if len(matches) != 1 else ''
         await send(msg, f"Found {len(matches)} match{suffix} for \"{fragment}\":\n{matchstr}")
 
+manuals["sethindsight"] = """
+Usage:
+!sethindsight [num]
+Sets the markov hindsight to num.
+Only numbers between 1 and 3 are valid.
+"""
 async def sethindsight(msg, tail):
     global hindsight
     strnum, *_ = tail
@@ -434,12 +445,12 @@ def maybe_regen_markov():
 def everyone_model():
     return markovify.combine([v for k, v in markov_models.items()])
 
+manuals["genquote"] = """
+Usage:
+!genquote [name]
+Generates a quote from the specified user's past quotes using a markov chain model.
+"""
 async def genquote(msg: Message, tail: "list[str]"):
-    """
-    Usage:
-    !genquote [name]
-    Generates a quote from the specified user's past quotes.
-    """
     if len(tail) < 1:
         await send(msg, "You have to specify a name to generate a quote from.")
         return
@@ -480,12 +491,12 @@ async def genquote(msg: Message, tail: "list[str]"):
     await send(msg, f"{name}: \"{quote}\"")
     return True
 
+manuals["eightball"] = """
+Usage:
+!eightball [question...]
+Returns a random answer to the specified question.
+"""
 async def eightball(msg: Message, tail: "list[str]"):
-    """
-    Usage:
-    !8ball [question...]
-    Returns a random answer to the specified question.
-    """
     if len(tail) < 1:
         await send(msg, "You have to specify a question to ask the magic 8ball.")
         return
@@ -494,12 +505,12 @@ async def eightball(msg: Message, tail: "list[str]"):
     qres = question.strip('?\n ')
     await send(msg, f"{qres}?\n🎱 {choice(ANSWERS)}")
 
+manuals["ballsdeep"] = """
+Usage:
+!ballsdeep
+This is a dumb function.
+"""
 async def ballsdeep(msg: Message):
-    """
-    Usage:
-    !ballsdeep
-    This is a dumb function.
-    """
     await send(msg, "[SUCCESSFULLY HACKED FBI - BLOWING UP COMPUTER]")
     for i in range(5, 0, -1):
         await send(msg, f"{i}")
