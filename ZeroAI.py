@@ -123,29 +123,29 @@ async def on_message(msg: Message):
 
     head, *tail = cmd
 
-    if head == "pieces":
+    if head == "pieces" or head in aliases["pieces"]:
         await pieces(msg)
-    if head == "quote":
+    if head == "quote" or head in aliases["quote"]:
         await quote(msg, tail)
-    if head == "addquote":
+    if head == "addquote" or head in aliases["addquote"]:
         await addquote(msg, tail)
-    if head in ("rmquote", "removequote"):
+    if head == "removequote" or head in aliases["removequote"]:
         await rmquote(msg, tail)
-    if head == "quotestats":
+    if head == "quotestats" or head in aliases["quotestats"]:
         await quotestats(msg, tail)
-    if head == "ballsdeep":
+    if head == "ballsdeep" or head in aliases["ballsdeep"]:
         await ballsdeep(msg)
-    if head == "joinme":
+    if head == "joinme" or head in aliases["joinme"]:
         await joinme(msg, tail)
-    if head in ("qs", "quotesearch"):
+    if head == "quotesearch" or head in aliases["quotesearch"]:
         await quotesearch(msg, tail)
-    if head == "genquote":
+    if head == "genquote" or head in aliases["genquote"]:
         await genquote(msg, tail)
-    if head == "sethindsight":
+    if head == "sethindsight" or head in aliases["sethindsight"]:
         await sethindsight(msg, tail)
-    if head == "8ball":
+    if head == "eightball" or head in aliases["eightball"]:
         await eightball(msg, tail)
-    if head == "man":
+    if head == "man" or head in aliases["man"]:
         await man(msg, tail)
 
 manuals["pieces"] = f"""
