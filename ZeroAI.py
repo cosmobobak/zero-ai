@@ -260,7 +260,7 @@ def inc_regen_quotes():
     time_since_model_refresh += 1
 
 
-manuals["addquote"] = """
+manuals["addquote"] = f"""
 Usage:
 {CMDCHAR}addquote [name] [quote...]
 Adds a quote to the specified user's list of quotes.
@@ -302,7 +302,7 @@ async def addquote(msg: Message, tail):
 
     await send(msg, f"added quote \"{quote}\" to file {filename}")
 
-manuals["rmquote"] = """
+manuals["rmquote"] = f"""
 Usage:
 {CMDCHAR}rmquote [name] [quote...]
 Finds the quote most similar to the one specified, then deletes it if it is an exact match.
@@ -348,7 +348,7 @@ async def rmquote(msg, tail):
 
     await send(msg, f"removed quote \"{closest[:1000]}\" from file {filename}")
 
-manuals["quotestats"] = """
+manuals["quotestats"] = f"""
 Usage:
 {CMDCHAR}quotestats [name]
 Prints information about the quotes in the specified user's list.
@@ -371,7 +371,7 @@ async def quotestats(msg: Message, tail):
     avglen = int(sum(map(len, qs)) / count + 0.5)
     await send(msg, f"{name} has {count} quotes, with an average quote length of {avglen}.")
 
-manuals["quotesearch"] = """
+manuals["quotesearch"] = f"""
 Usage:
 {CMDCHAR}quotesearch [quote fragment] [num]
 Searches all quotes for the specified quote fragment and returns the N quotes with the highest similarity.
@@ -421,7 +421,7 @@ async def quotesearch(msg: Message, tail):
         suffix = 'es' if len(matches) != 1 else ''
         await send(msg, f"Found {len(matches)} match{suffix} for \"{fragment}\":\n{matchstr}")
 
-manuals["sethindsight"] = """
+manuals["sethindsight"] = f"""
 Usage:
 {CMDCHAR}sethindsight [num]
 Sets the markov hindsight to num.
@@ -456,7 +456,7 @@ def maybe_regen_markov():
 def everyone_model():
     return markovify.combine([v for k, v in markov_models.items()])
 
-manuals["genquote"] = """
+manuals["genquote"] = f"""
 Usage:
 {CMDCHAR}genquote [name]
 Generates a quote from the specified user's past quotes using a markov chain model.
@@ -503,7 +503,7 @@ async def genquote(msg: Message, tail: "list[str]"):
     await send(msg, f"{name}: \"{quote}\"")
     return True
 
-manuals["eightball"] = """
+manuals["eightball"] = f"""
 Usage:
 {CMDCHAR}eightball [question...]
 Returns a random answer to the specified question.
@@ -518,7 +518,7 @@ async def eightball(msg: Message, tail: "list[str]"):
     qres = question.strip('?\n ')
     await send(msg, f"{qres}?\n🎱 {choice(ANSWERS)}")
 
-manuals["ballsdeep"] = """
+manuals["ballsdeep"] = f"""
 Usage:
 {CMDCHAR}ballsdeep
 This is a dumb function.
@@ -528,7 +528,7 @@ async def ballsdeep(msg: Message):
     for i in range(5, 0, -1):
         await send(msg, f"{i}")
 
-manuals["man"] = """
+manuals["man"] = f"""
 Usage:
 {CMDCHAR}man [command]
 Sends the specified command's manual.
