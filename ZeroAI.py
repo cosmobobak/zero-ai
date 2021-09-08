@@ -1,4 +1,5 @@
 import asyncio
+from collections import defaultdict
 
 from markovify.text import NewlineText
 from markov import generate_quote, regenerate_models
@@ -26,7 +27,8 @@ time_since_model_refresh: int = 0
 
 hindsight = 1
 
-manuals: "dict[str, str]" = dict()
+manuals: "dict[str, str]" = {}
+aliases: "dict[str, list]" = defaultdict(list)
 
 def generate_quote_path(name: str) -> str:
     return f"{QUOTEPATH}{name}quotes.txt"
@@ -146,7 +148,7 @@ async def on_message(msg: Message):
 
 manuals["pieces"] = """
 Usage:
-`!pieces`
+!pieces
 chooses three random chess pieces.
 intended to be used to play a chess variant.
 """
@@ -157,7 +159,7 @@ async def pieces(msg: Message):
 
 manuals["joinme"] = """
 Usage:
-`!joinme [name]`
+!joinme [name]
 Adds a user to the list of known users.
 """
 async def joinme(msg, tail):
@@ -176,11 +178,12 @@ async def joinme(msg, tail):
 
 manuals["quote"] = """
 Usage:
-`!quote [name (optional)] [num (optional)]`
+!quote [name (optional)] [num (optional)]
 Sends a random quote from a user. If num is specified,
 it will send [num] random quotes from the specified user.
-Not specifying user is equivalent to `!quote anyone`.
+Not specifying user is equivalent to !quote anyone.
 """
+aliases["quote"].append("q")
 async def quote(msg: Message, tail) -> bool:
     if len(tail) == 2:
         name, num, *_ = tail
@@ -257,9 +260,10 @@ def inc_regen_quotes():
 
 manuals["addquote"] = """
 Usage:
-`!addquote [name] [quote...]`
+!addquote [name] [quote...]
 Adds a quote to the specified user's list of quotes.
 """
+aliases["quote"].append("aq")
 async def addquote(msg: Message, tail):
     if len(tail) < 2:
         await send(msg, "You have to specify a name and a quote (of at least one word) to add.")
@@ -302,6 +306,7 @@ Usage:
 Finds the quote most similar to the one specified, then deletes it if it is an exact match.
 If the quote is not an exact match, you will be prompted to confirm deletion.
 """
+aliases["rmquote"].append("rq")
 async def rmquote(msg, tail):
     if len(tail) < 2:
         await send(msg, "You have to specify a name and a quote (of at least one word) to remove.")
@@ -346,6 +351,7 @@ Usage:
 !quotestats [name]
 Prints information about the quotes in the specified user's list.
 """
+aliases["quotestats"].append("stats")
 async def quotestats(msg: Message, tail):
     if len(tail) < 1:
         await send(msg, "You have to specify a name to get quote stats for.")
@@ -369,6 +375,8 @@ Usage:
 Searches all quotes for the specified quote fragment and returns the N quotes with the highest similarity.
 Ping cosmo to make this work with quote fragments that contain spaces.
 """
+aliases["quotesearch"].append("qsearch")
+aliases["quotesearch"].append("qs")
 # TODO: make this work with quotes that contain spaces
 async def quotesearch(msg: Message, tail):
     
@@ -417,6 +425,7 @@ Usage:
 Sets the markov hindsight to num.
 Only numbers between 1 and 3 are valid.
 """
+aliases["sethindsight"].append("shs")
 async def sethindsight(msg, tail):
     global hindsight
     strnum, *_ = tail
@@ -450,6 +459,7 @@ Usage:
 !genquote [name]
 Generates a quote from the specified user's past quotes using a markov chain model.
 """
+aliases["genquote"].append("gq")
 async def genquote(msg: Message, tail: "list[str]"):
     if len(tail) < 1:
         await send(msg, "You have to specify a name to generate a quote from.")
@@ -496,6 +506,7 @@ Usage:
 !eightball [question...]
 Returns a random answer to the specified question.
 """
+aliases["eightball"].append("8ball")
 async def eightball(msg: Message, tail: "list[str]"):
     if len(tail) < 1:
         await send(msg, "You have to specify a question to ask the magic 8ball.")
@@ -514,6 +525,23 @@ async def ballsdeep(msg: Message):
     await send(msg, "[SUCCESSFULLY HACKED FBI - BLOWING UP COMPUTER]")
     for i in range(5, 0, -1):
         await send(msg, f"{i}")
+
+manuals["man"] = """
+Usage:
+!man [command]
+Sends the specified command's manual.
+"""
+async def man(msg: Message, tail: "list[str]"):
+    cmd, *_ = tail
+    if cmd not in manuals:
+        await send(msg, f"{cmd} is not a command.")
+    else:
+        manual = manuals[cmd].strip()
+        alias_list = aliases[cmd]
+        if len(alias_list) > 0:
+            await send(msg, f"```{manual}```\nAliases: {', '.join(alias_list)}")
+        else:
+            await send(msg, f"```{manual}```")
 
 async def send(message: Message, text):
     """
