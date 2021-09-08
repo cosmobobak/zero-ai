@@ -17,7 +17,7 @@ from storage import UserData, compute_quote_distribution, get_all_quotes, read_u
 
 # TODO: Add a feature that reduces immediate repetitions of quotes.
 
-CMDCHAR = '!'
+CMDCHAR = '^'
 MAX_QUOTE_LENGTH = 1500
 QUOTEPATH = "quotes/"
 
@@ -263,7 +263,7 @@ Usage:
 {CMDCHAR}addquote [name] [quote...]
 Adds a quote to the specified user's list of quotes.
 """
-aliases["quote"].append("aq")
+aliases["addquote"].append("aq")
 async def addquote(msg: Message, tail):
     if len(tail) < 2:
         await send(msg, "You have to specify a name and a quote (of at least one word) to add.")
@@ -539,7 +539,7 @@ async def man(msg: Message, tail: "list[str]"):
         manual = manuals[cmd].strip()
         alias_list = aliases[cmd]
         if len(alias_list) > 0:
-            await send(msg, f"```{manual}```\nAliases: {', '.join(alias_list)}")
+            await send(msg, f"```{manual}\n\nAliases: {', '.join(alias_list)}```")
         else:
             await send(msg, f"```{manual}```")
 
@@ -551,7 +551,7 @@ Sends all the commands that ZeroAI supports.
 aliases["commands"].append("cmds")
 async def commands(msg: Message):
     nwln = '\n'
-    string = f"Commands:\n```{nwln.join(manuals)}```"
+    string = f"Commands:\n```{nwln.join(sorted(manuals))}```"
     await send(msg, string)
 
 async def send(message: Message, text):
