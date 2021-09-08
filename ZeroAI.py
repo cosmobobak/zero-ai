@@ -542,7 +542,8 @@ async def man(msg: Message, tail: "list[str]"):
             await send(msg, f"```{manual}```")
 
 async def commands(msg: Message):
-    string = f"Commands:\n```{'\n'.join(manuals)}```"
+    nwln = '\n'
+    string = f"Commands:\n```{nwln.join(manuals)}```"
     await send(msg, string)
 
 async def send(message: Message, text):
