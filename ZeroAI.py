@@ -143,6 +143,8 @@ async def on_message(msg: Message):
         await eightball(msg, tail)
     if head == "man" or head in aliases["man"]:
         await man(msg, tail)
+    if head == "commands" or head in aliases["commands"]:
+        await commands(msg)
 
 manuals["pieces"] = f"""
 Usage:
@@ -541,6 +543,12 @@ async def man(msg: Message, tail: "list[str]"):
         else:
             await send(msg, f"```{manual}```")
 
+manuals["commands"] = f"""
+Usage:
+{CMDCHAR}commands
+Sends all the commands that ZeroAI supports.
+"""
+aliases["commands"].append("cmds")
 async def commands(msg: Message):
     nwln = '\n'
     string = f"Commands:\n```{nwln.join(manuals)}```"
