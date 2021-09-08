@@ -17,7 +17,7 @@ from storage import UserData, compute_quote_distribution, get_all_quotes, read_u
 
 # TODO: Add a feature that reduces immediate repetitions of quotes.
 
-COMMAND_CHARACTER = '!'
+CMDCHAR = '!'
 MAX_QUOTE_LENGTH = 1500
 QUOTEPATH = "quotes/"
 
@@ -116,7 +116,7 @@ async def on_message(msg: Message):
     if msg.author == client.user: return
 
     lead_char, cmd = sanitise_message(msg.content)
-    if lead_char != COMMAND_CHARACTER: return
+    if lead_char != CMDCHAR: return
     if len(cmd) == 0: return
 
     print(cmd)
@@ -148,9 +148,9 @@ async def on_message(msg: Message):
     if head == "man":
         await man(msg, tail)
 
-manuals["pieces"] = """
+manuals["pieces"] = f"""
 Usage:
-!pieces
+{CMDCHAR}pieces
 chooses three random chess pieces.
 intended to be used to play a chess variant.
 """
@@ -159,14 +159,14 @@ async def pieces(msg: Message):
     a, b, c = sample(pieces, 3)
     await send(msg, f"pieces: {a}, {b}, {c}")
 
-manuals["joinme"] = """
+manuals["joinme"] = f"""
 Usage:
-!joinme [name]
+{CMDCHAR}joinme [name]
 Adds a user to the list of known users.
 """
 async def joinme(msg, tail):
     if not len(tail) >= 1:
-        await send(msg, "You have to specify a name for !joinme to work.")
+        await send(msg, f"You have to specify a name for {CMDCHAR}joinme to work.")
         return
     name, *_ = tail
 
@@ -178,12 +178,12 @@ async def joinme(msg, tail):
 
     write_users(userset)
 
-manuals["quote"] = """
+manuals["quote"] = f"""
 Usage:
-!quote [name (optional)] [num (optional)]
+{CMDCHAR}quote [name (optional)] [num (optional)]
 Sends a random quote from a user. If num is specified,
 it will send [num] random quotes from the specified user.
-Not specifying user is equivalent to !quote anyone.
+Not specifying user is equivalent to {CMDCHAR}quote anyone.
 """
 aliases["quote"].append("q")
 async def quote(msg: Message, tail) -> bool:
@@ -224,10 +224,10 @@ async def handle_name(msg, name: "Optional[str]") -> "Optional[str]":
         name = weighted_choice(user_quote_distribution)
 
     if name not in lads:
-        await send(msg, f"\"{name}\" is not in my list of users. Use !joinme {name} if you are {name} and want to be added.")
+        await send(msg, f"\"{name}\" is not in my list of users. Use {CMDCHAR}joinme {name} if you are {name} and want to be added.")
         return None
     elif name == None:
-        await send(msg, "I don't know who you are. Use !joinme [name] if you want to be added.")
+        await send(msg, f"I don't know who you are. Use {CMDCHAR}joinme [name] if you want to be added.")
         return None
 
     return name
@@ -262,7 +262,7 @@ def inc_regen_quotes():
 
 manuals["addquote"] = """
 Usage:
-!addquote [name] [quote...]
+{CMDCHAR}addquote [name] [quote...]
 Adds a quote to the specified user's list of quotes.
 """
 aliases["quote"].append("aq")
@@ -304,7 +304,7 @@ async def addquote(msg: Message, tail):
 
 manuals["rmquote"] = """
 Usage:
-!rmquote [name] [quote...]
+{CMDCHAR}rmquote [name] [quote...]
 Finds the quote most similar to the one specified, then deletes it if it is an exact match.
 If the quote is not an exact match, you will be prompted to confirm deletion.
 """
@@ -350,7 +350,7 @@ async def rmquote(msg, tail):
 
 manuals["quotestats"] = """
 Usage:
-!quotestats [name]
+{CMDCHAR}quotestats [name]
 Prints information about the quotes in the specified user's list.
 """
 aliases["quotestats"].append("stats")
@@ -373,7 +373,7 @@ async def quotestats(msg: Message, tail):
 
 manuals["quotesearch"] = """
 Usage:
-!quotesearch [quote fragment] [num]
+{CMDCHAR}quotesearch [quote fragment] [num]
 Searches all quotes for the specified quote fragment and returns the N quotes with the highest similarity.
 Ping cosmo to make this work with quote fragments that contain spaces.
 """
@@ -423,7 +423,7 @@ async def quotesearch(msg: Message, tail):
 
 manuals["sethindsight"] = """
 Usage:
-!sethindsight [num]
+{CMDCHAR}sethindsight [num]
 Sets the markov hindsight to num.
 Only numbers between 1 and 3 are valid.
 """
@@ -458,7 +458,7 @@ def everyone_model():
 
 manuals["genquote"] = """
 Usage:
-!genquote [name]
+{CMDCHAR}genquote [name]
 Generates a quote from the specified user's past quotes using a markov chain model.
 """
 aliases["genquote"].append("gq")
@@ -505,7 +505,7 @@ async def genquote(msg: Message, tail: "list[str]"):
 
 manuals["eightball"] = """
 Usage:
-!eightball [question...]
+{CMDCHAR}eightball [question...]
 Returns a random answer to the specified question.
 """
 aliases["eightball"].append("8ball")
@@ -520,7 +520,7 @@ async def eightball(msg: Message, tail: "list[str]"):
 
 manuals["ballsdeep"] = """
 Usage:
-!ballsdeep
+{CMDCHAR}ballsdeep
 This is a dumb function.
 """
 async def ballsdeep(msg: Message):
@@ -530,7 +530,7 @@ async def ballsdeep(msg: Message):
 
 manuals["man"] = """
 Usage:
-!man [command]
+{CMDCHAR}man [command]
 Sends the specified command's manual.
 """
 async def man(msg: Message, tail: "list[str]"):
