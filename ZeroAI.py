@@ -145,6 +145,8 @@ async def on_message(msg: Message):
         await sethindsight(msg, tail)
     if head == "8ball":
         await eightball(msg, tail)
+    if head == "man":
+        await man(msg, tail)
 
 manuals["pieces"] = """
 Usage:
