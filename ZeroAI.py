@@ -184,32 +184,29 @@ it will send [num] random quotes from the specified user.
 Not specifying user is equivalent to {CMDCHAR}quote anyone.
 """
 aliases["quote"].append("q")
-async def quote(msg: Message, tail) -> bool:
-    if len(tail) == 2:
-        name, num, *_ = tail
-        num = int(num)
-        if num > 5:
-            await send(msg, "You may only request up to five sequential quotes.")
-            return False
-        for _ in range(num):
-            result = await quote(msg, [name])
-            if not result:
-                return False
-        return True
-
-    if len(tail) == 0:
-        name = weighted_choice(user_quote_distribution)
-    else:
+async def quote(msg: Message, tail):
+    if tail == []:
+        name = "anyone"
+        n = 1
+    elif len(tail) == 1:
         name, *_ = tail
+        n = 1
+    else:
+        name, strn, *_ = tail
+        n = int(strn)
 
-        name = await handle_name(msg, name)
-        if name == None: return False
+    if n > 5:
+        await send(msg, "You may only request up to five sequential quotes.")
+        return
 
-    filename = generate_quote_path(name)
-    with open(filename, 'r') as f:
-        qs = [strip_endline(q) for q in f]
-    await send(msg, f"{name}: \"{choice(qs)}\"")
-    return True
+    name = await handle_name(msg, name)
+    if name == None: return
+
+    qs = get_all_quotes(name)
+
+    choices = sample(qs, n)
+    quotes = [f"{name}: \"{strip_endline(q)}\"" for q in choices]
+    await send(msg, "\n".join(quotes))
 
 async def handle_name(msg, name: "Optional[str]") -> "Optional[str]":
     """
@@ -221,15 +218,14 @@ async def handle_name(msg, name: "Optional[str]") -> "Optional[str]":
     if name == "anyone":
         name = weighted_choice(user_quote_distribution)
 
-    if name not in lads:
-        await send(msg, f"\"{name}\" is not in my list of users. Use {CMDCHAR}joinme {name} if you are {name} and want to be added.")
-        return None
-    elif name == None:
+    if name == None:
         await send(msg, f"I don't know who you are. Use {CMDCHAR}joinme [name] if you want to be added.")
+        return None
+    elif name not in lads:
+        await send(msg, f"\"{name}\" is not in my list of users. Use {CMDCHAR}joinme {name} if you are {name} and want to be added.")
         return None
 
     return name
-
 
 def user_find(username, discriminator):
     """
@@ -379,19 +375,17 @@ aliases["quotesearch"].append("qsearch")
 aliases["quotesearch"].append("qs")
 # TODO: make this work with quotes that contain spaces
 async def quotesearch(msg: Message, tail):
-    
     if tail == []:
         await send(msg, "You have to specify a fragment to search for.")
         return
-
-    if len(tail) >= 2:
-        fragment, strnum, *_ = tail
-        num = int(strnum)
-    else:
+    elif len(tail) == 1:
         fragment, *_ = tail
-        num = 1
+        n = 1
+    else:
+        fragment, strn, *_ = tail
+        n = int(strn)
     
-    if num < 1 or num > 10:
+    if n < 1 or n > 10:
         await send(msg, "You have to specify a number greater than 0 and at most 10.")
         return
 
@@ -408,7 +402,7 @@ async def quotesearch(msg: Message, tail):
     matches = sorted(matches, key=lambda q: 0 if f" {fragment} " in q[1] else 1)
 
     # select the first N matches
-    matches = matches[:num]
+    matches = matches[:n]
 
     # format the matches into a string for sending
     matchstr = "\n".join(f"{i+1}. {q[0]}: {q[1].strip()}" for i, q in enumerate(matches))
@@ -454,6 +448,11 @@ def maybe_regen_markov():
 def everyone_model():
     return markovify.combine([v for k, v in markov_models.items()])
 
+def fetch_model(name: str):
+    if name == "everyone":
+        return everyone_model()
+    return markov_models[name]
+
 manuals["genquote"] = f"""
 Usage:
 {CMDCHAR}genquote [name]
@@ -461,44 +460,34 @@ Generates a quote from the specified user's past quotes using a markov chain mod
 """
 aliases["genquote"].append("gq")
 async def genquote(msg: Message, tail: "list[str]"):
-    if len(tail) < 1:
-        await send(msg, "You have to specify a name to generate a quote from.")
+    if tail == []:
+        name = "anyone"
+        n = 1
+    elif len(tail) == 1:
+        name, *_ = tail
+        n = 1
+    else:
+        name, strn, *_ = tail
+        n = int(strn)
+    
+    if n > 5:
+        await send(msg, "You may only request up to five sequential quotes.")
         return
 
-    if len(tail) == 2:
-        name, num, *_ = tail
-        num = int(num)
-        if num > 5:
-            await send(msg, "You may only request up to five sequential quotes.")
-            return False
-        for _ in range(num):
-            result = await genquote(msg, [name])
-            if not result:
-                return False
-        return True
+    name = await handle_name(msg, name) if name not in ("everyone", "anyone") else name 
+    if name == None: return
 
-    name, *_ = tail
+    maybe_regen_markov()
 
-    if name == "everyone":
-        maybe_regen_markov()
-        model = everyone_model()
-    else:
-        name = await handle_name(msg, name)
-        if name == None: return
+    names = [weighted_choice(user_quote_distribution) if name == "anyone" else name for _ in range(n)]
+    names_maybe_quotes = ((x, generate_quote(fetch_model(x))) for x in names)
 
-        maybe_regen_markov()
+    isnotnone = lambda x: x[1] is not None
 
-        model = markov_models[name]
+    quotes = [f"{x}: \"{q}\"" for x, q in filter(
+        isnotnone, names_maybe_quotes)]
 
-    maybe_quote = generate_quote(model)
-
-    if maybe_quote is None:
-        await send(msg, "Insufficient data.")
-        return False
-
-    quote: str = maybe_quote
-
-    await send(msg, f"{name}: \"{quote}\"")
+    await send(msg, "\n".join(quotes))
     return True
 
 manuals["eightball"] = f"""
@@ -508,7 +497,7 @@ Returns a random answer to the specified question.
 """
 aliases["eightball"].append("8ball")
 async def eightball(msg: Message, tail: "list[str]"):
-    if len(tail) < 1:
+    if tail == []:
         await send(msg, "You have to specify a question to ask the magic 8ball.")
         return
 
@@ -535,13 +524,14 @@ async def man(msg: Message, tail: "list[str]"):
     cmd, *_ = tail
     if cmd not in manuals:
         await send(msg, f"{cmd} is not a command.")
-    else:
-        manual = manuals[cmd].strip()
-        alias_list = aliases[cmd]
-        if len(alias_list) > 0:
-            await send(msg, f"```{manual}\n\nAliases: {', '.join(alias_list)}```")
-        else:
-            await send(msg, f"```{manual}```")
+        return
+
+    manual = manuals[cmd].strip()
+
+    alias_list = aliases[cmd]
+    alias_part = f"\n\nAliases: [{', '.join(alias_list)}]" if alias_list != [] else ""
+    
+    await send(msg, f"```{manual} {alias_part}```")
 
 manuals["commands"] = f"""
 Usage:
@@ -551,7 +541,11 @@ Sends all the commands that ZeroAI supports.
 aliases["commands"].append("cmds")
 async def commands(msg: Message):
     nwln = '\n'
-    string = f"Commands:\n```{nwln.join(sorted(manuals))}```"
+    cmdnames = sorted(manuals)
+    names_plus_aliases = [
+        f"{name} [{', '.join(aliases[name])}]" if len(aliases[name])>0 else f"{name}" 
+        for name in cmdnames]
+    string = f"Commands:\n```{nwln.join(names_plus_aliases)}```"
     await send(msg, string)
 
 async def send(message: Message, text):
