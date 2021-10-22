@@ -579,7 +579,7 @@ Shows all the currently registered users of the bot.
 Defaults to only showing users with registered Discord uids.
 Pass the -all flag to show users without Discord uids.
 """
-async def users(msg: Message, text: list[str]):
+async def users(msg: Message, text: "list[str]"):
     showall = True
     if "-all" not in text:
         showall = False
