@@ -1,4 +1,7 @@
+
 from dataclasses import dataclass
+import os
+from textproc import character_distance, strip_endline
 
 @dataclass
 class UserData:
@@ -17,6 +20,10 @@ class UserData:
 
     def __repr__(self) -> str:
         return f"{self.name}, {self.username}#{self.code}\n"
+
+    @classmethod
+    def dummy_from_name(cls, name) -> "UserData":
+        return UserData(name, "", "")
 
 def read_users() -> "set[UserData]":
     # Reads the users.txt file and returns a dictionary of uid: name
@@ -65,3 +72,23 @@ def read_raw_text(user: str) -> "str":
     # Reads the quotes.txt file and returns the raw text for the user
     with open(f"quotes/{user}quotes.txt", 'r') as f:
         return f.read()
+
+
+def is_known_user(user: str, userset: "set[UserData]") -> bool:
+    # return any(user == u.name for u in userset)
+    return UserData.dummy_from_name(user) in userset
+
+
+def touch(filename: str) -> None:
+    if os.path.exists(filename):
+        os.utime(filename, None)
+    else:
+        open(filename, 'a').close()
+
+
+def file_contains_quote(filename: str, quote: str) -> bool:
+    with open(filename, 'r') as f:
+        qs = (strip_endline(q) for q in f)
+        diffs = (character_distance(quote.lower(), q.lower()) for q in qs)
+        preds = (d <= 2 for d in diffs)
+        return any(preds)

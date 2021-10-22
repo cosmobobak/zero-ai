@@ -1,9 +1,12 @@
 import asyncio
 from collections import defaultdict
+import os
+from textproc import character_distance, strip_endline
+import typing
 
 from markovify.text import NewlineText
 from markov import generate_quote, regenerate_models
-from typing import Optional
+from typing import Any, Optional
 import discord
 import difflib
 import markovify
@@ -13,7 +16,7 @@ from dotenv import load_dotenv
 from itertools import chain
 
 from random import choice, sample, random
-from storage import UserData, compute_quote_distribution, get_all_quotes, read_users, write_users
+from storage import UserData, compute_quote_distribution, file_contains_quote, get_all_quotes, is_known_user, read_users, touch, write_users
 
 # TODO: Add a feature that reduces immediate repetitions of quotes.
 
@@ -28,14 +31,14 @@ time_since_model_refresh: int = 0
 hindsight = 1
 
 manuals: "dict[str, str]" = {}
-aliases: "dict[str, list]" = defaultdict(list)
+aliases: "dict[str, list[str]]" = defaultdict(list)
 
 def generate_quote_path(name: str) -> str:
     return f"{QUOTEPATH}{name}quotes.txt"
 
-lads = {"finegold", "gotham", "jamie", "kit", "mike", "cosmo",
-        "edward", "marina", "tegan", "elyn", "roman", "adam", 
-        "cameron", "kim", "henry"}
+# lads = {"finegold", "gotham", "jamie", "kit", "mike", "cosmo",
+#         "edward", "marina", "tegan", "elyn", "roman", "adam", 
+#         "cameron", "kim", "henry", "anna"}
 
 ANSWERS = ["It is Certain.",
            "It is decidedly so.",
@@ -65,6 +68,10 @@ ANSWERS = ["It is Certain.",
 user_quote_distribution: "dict[str, int]" = compute_quote_distribution()
 
 userset = read_users()
+
+
+def usernames_as_strs(uset: "set[UserData]") -> "list[str]":
+    return [u.name for u in uset]
 
 load_dotenv()
 
@@ -100,12 +107,12 @@ def sanitise_message(message_string: str) -> "tuple[str, list[str]]":
     return head, "".join(tail).split(" ")
 
 
-def strip_endline(s):
-    return s if s[-1] != '\n' else s[:-1]
 
 async def map_uid_to_handle(uid: str):
     user = await client.fetch_user(int(uid[3:-1]))
     return user.name + "#" + user.discriminator
+
+# TODO: use unpacking to make this prettier
 
 @client.event
 async def on_message(msg: Message):
@@ -126,7 +133,7 @@ async def on_message(msg: Message):
     if head == "addquote" or head in aliases["addquote"]:
         await addquote(msg, tail)
     if head == "removequote" or head in aliases["removequote"]:
-        await rmquote(msg, tail)
+        await removequote(msg, tail)
     if head == "quotestats" or head in aliases["quotestats"]:
         await quotestats(msg, tail)
     if head == "ballsdeep" or head in aliases["ballsdeep"]:
@@ -141,10 +148,12 @@ async def on_message(msg: Message):
         await sethindsight(msg, tail)
     if head == "eightball" or head in aliases["eightball"]:
         await eightball(msg, tail)
-    if head == "man" or head in aliases["man"]:
-        await man(msg, tail)
+    if head == "manual" or head in aliases["manual"]:
+        await manual(msg, tail)
     if head == "commands" or head in aliases["commands"]:
         await commands(msg)
+    if head == "users" or head in aliases["users"]:
+        await users(msg, tail)
 
 manuals["pieces"] = f"""
 Usage:
@@ -169,7 +178,9 @@ async def joinme(msg, tail):
     name, *_ = tail
 
     ud = UserData(name, msg.author.name, msg.author.discriminator)
+    # clean out from users by the hash value
     userset.discard(ud)
+    # add the new user info
     userset.add(ud)
 
     await send(msg, f"Saving {name}'s associated account as {msg.author.name}#{msg.author.discriminator}")
@@ -208,20 +219,23 @@ async def quote(msg: Message, tail):
     quotes = [f"{name}: \"{strip_endline(q)}\"" for q in choices]
     await send(msg, "\n".join(quotes))
 
-async def handle_name(msg, name: "Optional[str]") -> "Optional[str]":
+async def handle_name(msg: Message, name: "Optional[str]") -> "Optional[str]":
     """
     Converts a user-entered name into a name that can be used for quote lookup.
     """
 
     if name == "me":
-        name = user_find(msg.author.name, msg.author.discriminator)
+        sender: Any = msg.author
+        name = user_find(sender.name, sender.discriminator)
     if name == "anyone":
         name = weighted_choice(user_quote_distribution)
 
     if name == None:
         await send(msg, f"I don't know who you are. Use {CMDCHAR}joinme [name] if you want to be added.")
         return None
-    elif name not in lads:
+
+    name = name.lower()
+    if not is_known_user(name, userset):
         await send(msg, f"\"{name}\" is not in my list of users. Use {CMDCHAR}joinme {name} if you are {name} and want to be added.")
         return None
 
@@ -238,16 +252,6 @@ def user_find(username, discriminator):
     return None
 
 
-def character_distance(a: str, b: str) -> int:
-    """
-    Returns the number of changes that must be made to convert
-    string a to string b.
-    """
-    count = 0
-    for x in difflib.Differ().compare(f"{a}\n", f"{b}\n"):
-        if x[0] == ' ': continue
-        count += 1
-    return count
 
 def inc_regen_quotes():
     global time_since_model_refresh
@@ -272,13 +276,12 @@ async def addquote(msg: Message, tail):
 
     quote = " ".join(quotelist)
     filename = generate_quote_path(name)
-    with open(filename, 'r') as f:
-        qs = (strip_endline(q) for q in f)
-        diffs = (character_distance(quote.lower(), q.lower()) for q in qs)
-        preds = (d <= 2 for d in diffs)
-        if any(preds):
-            await send(msg, f"Not adding quote: is already in the list of quotes for {name}.")
-            return
+
+    touch(filename)
+
+    if file_contains_quote(filename, quote):
+        await send(msg, f"Not adding quote: is already in the list of quotes for {name}.")
+        return
 
     if "@" in quote:
         await send(msg, "Not adding quote: Quote contains an '@' character, which is not allowed.")
@@ -296,14 +299,15 @@ async def addquote(msg: Message, tail):
 
     await send(msg, f"added quote \"{quote}\" to file {filename}")
 
-manuals["rmquote"] = f"""
+manuals["removequote"] = f"""
 Usage:
-{CMDCHAR}rmquote [name] [quote...]
+{CMDCHAR}removequote [name] [quote...]
 Finds the quote most similar to the one specified, then deletes it if it is an exact match.
 If the quote is not an exact match, you will be prompted to confirm deletion.
 """
-aliases["rmquote"].append("rq")
-async def rmquote(msg, tail):
+aliases["removequote"].append("rq")
+aliases["removequote"].append("rmquote")
+async def removequote(msg, tail):
     if len(tail) < 2:
         await send(msg, "You have to specify a name and a quote (of at least one word) to remove.")
         return
@@ -322,7 +326,8 @@ async def rmquote(msg, tail):
     if diffs[closest] == 0:
         await send(msg, f"Removing quote.")
     else: 
-        await send(msg, f"Closest match found: \"{closest[:1000]}\"")
+        truncate_width = 200
+        await send(msg, f"Closest match found: \"{closest[:truncate_width]}{'...' if len(closest) > truncate_width else ''}\"")
         await send(msg, "Remove this quote? (y/n)")
         do_remove = await get_yes_no(msg)
         if not do_remove:
@@ -429,7 +434,7 @@ async def sethindsight(msg, tail):
     
     hindsight = num
 
-    regenerate_models(markov_models, lads, hindsight)
+    regenerate_models(markov_models, usernames_as_strs(userset), hindsight)
 
     await send(msg, f"Successfully set markov hindsight to {hindsight}")
 
@@ -439,16 +444,19 @@ def maybe_regen_markov():
     do_regen = len(markov_models) == 0 or time_since_model_refresh > REFRESH_MODEL_THRESHOLD
 
     if do_regen:
-        regenerate_models(markov_models, lads)
+        regenerate_models(markov_models, usernames_as_strs(userset))
         time_since_model_refresh = 0
     else:
         time_since_model_refresh += 1
 
 
-def everyone_model():
-    return markovify.combine([v for k, v in markov_models.items()])
+def everyone_model() -> NewlineText:
+    return typing.cast(
+        NewlineText, 
+        markovify.combine(markov_models.values()))
 
-def fetch_model(name: str):
+
+def fetch_model(name: str) -> NewlineText:
     if name == "everyone":
         return everyone_model()
     return markov_models[name]
@@ -515,15 +523,31 @@ async def ballsdeep(msg: Message):
     for i in range(5, 0, -1):
         await send(msg, f"{i}")
 
-manuals["man"] = f"""
+def alias_lookup(cmd: str) -> Optional[str]:
+    for key, alias_list in aliases.items():
+        if cmd in alias_list:
+            return key
+    return None
+
+
+manuals["manual"] = f"""
 Usage:
-{CMDCHAR}man [command]
+{CMDCHAR}manual [command]
 Sends the specified command's manual.
 """
-async def man(msg: Message, tail: "list[str]"):
+aliases["manual"].append("man")
+async def manual(msg: Message, tail: "list[str]"):
     cmd, *_ = tail
+    
     if cmd not in manuals:
-        await send(msg, f"{cmd} is not a command.")
+        if cmd not in chain.from_iterable(aliases.values()):
+            await send(msg, f"{cmd} is not a command.")
+            return
+        else:
+            cmd = alias_lookup(cmd)
+    
+    if cmd is None:
+        await send(msg, "ping cosmo, something's fucked up in man")
         return
 
     manual = manuals[cmd].strip()
@@ -547,6 +571,20 @@ async def commands(msg: Message):
         for name in cmdnames]
     string = f"Commands:\n```{nwln.join(names_plus_aliases)}```"
     await send(msg, string)
+
+manuals["users"] = f"""
+Usage:
+{CMDCHAR}users
+Shows all the currently registered users of the bot.
+Defaults to only showing users with registered Discord uids.
+Pass the -all flag to show users without Discord uids.
+"""
+async def users(msg: Message, text: list[str]):
+    showall = True
+    if "-all" not in text:
+        showall = False
+    usernames = sorted([u.name for u in userset if not u.isnull or showall])
+    await send(msg, f"Users:\n [{', '.join(usernames)}]")
 
 async def send(message: Message, text):
     """

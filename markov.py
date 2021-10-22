@@ -13,7 +13,7 @@ def generate_model(user: str, ssize: int) -> NewlineText:
     model = NewlineText(quotes, state_size=ssize)
     return model
 
-def regenerate_models(models: "dict[str, NewlineText]", usernames: "set[str]", ssize=1):
+def regenerate_models(models: "dict[str, NewlineText]", usernames: "list[str]", ssize=1):
     for user in sorted(usernames):
         start_time = time()
         models[user] = generate_model(user, ssize)
