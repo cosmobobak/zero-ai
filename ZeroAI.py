@@ -453,7 +453,7 @@ def maybe_regen_markov():
 def everyone_model() -> NewlineText:
     return typing.cast(
         NewlineText, 
-        markovify.combine(markov_models.values()))
+        markovify.combine(list(markov_models.values())))
 
 
 def fetch_model(name: str) -> NewlineText:
