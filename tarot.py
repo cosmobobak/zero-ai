@@ -1,10 +1,11 @@
-from dataclasss import dataclass
+from dataclasses import dataclass
 
 @dataclass
 class Card:
     name: str
-    description: str
+    meaning: str
+    meaning_reversed: str
+    answer: str
+    long_form_meaning: str
 
-CARDS: "list[Card]" = [
-    Card()
-]
+
