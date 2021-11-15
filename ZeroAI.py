@@ -210,10 +210,15 @@ async def quote(msg: Message, tail):
         await send(msg, "You may only request up to five sequential quotes.")
         return
 
-    name = await handle_name(msg, name)
+    name = await handle_name(msg, name) if name not in ("everyone", "anyone") else name
     if name == None: return
 
-    qs = get_all_quotes(name)
+    if name not in ("everyone", "anyone"):
+        qs = get_all_quotes(name)
+    else:
+        qs = []
+        for u in userset:
+            qs += get_all_quotes(u.name)
 
     choices = sample(qs, n)
     quotes = [f"{name}: \"{strip_endline(q)}\"" for q in choices]
