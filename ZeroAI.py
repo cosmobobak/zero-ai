@@ -390,8 +390,8 @@ async def quotesearch(msg: Message, tail):
         fragment, strn, *_ = tail
         n = int(strn)
     
-    if n < 1 or n > 10:
-        await send(msg, "You have to specify a number greater than 0 and at most 10.")
+    if n < 1 or n > 100:
+        await send(msg, "You have to specify a number greater than 0 and at most 100.")
         return
 
     # grab all quotes from all files
