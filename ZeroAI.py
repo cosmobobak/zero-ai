@@ -214,14 +214,14 @@ async def quote(msg: Message, tail):
     if name == None: return
 
     if name not in ("everyone", "anyone"):
-        qs = get_all_quotes(name)
+        qs = list(map(lambda x: (name, x), get_all_quotes(name)))
     else:
         qs = []
         for u in userset:
-            qs += get_all_quotes(u.name)
+            qs += list(map(lambda x: (u.name, x), get_all_quotes(u.name)))
 
     choices = sample(qs, n)
-    quotes = [f"{name}: \"{strip_endline(q)}\"" for q in choices]
+    quotes = [f"{n}: \"{strip_endline(q)}\"" for n, q in choices]
     await send(msg, "\n".join(quotes))
 
 async def handle_name(msg: Message, name: "Optional[str]") -> "Optional[str]":
