@@ -3,7 +3,10 @@ from collections import defaultdict
 import os
 from textproc import character_distance, strip_endline
 import typing
-
+#async scheduler so it does not block other events
+#from apscheduler.schedulers.asyncio import AsyncIOScheduler
+#from apscheduler.triggers.cron import CronTrigger
+from discord.ext import commands
 from markovify.text import NewlineText
 from markov import generate_quote, regenerate_models
 from typing import Any, Optional
@@ -20,8 +23,9 @@ from storage import UserData, compute_quote_distribution, file_contains_quote, g
 
 # TODO: Add a feature that reduces immediate repetitions of quotes.
 
-CMDCHAR = '^'
+CMDCHAR = '!'
 MAX_QUOTE_LENGTH = 1500
+MAX_QUOTE_SEARCH_RESULTS = 50
 QUOTEPATH = "quotes/"
 
 REFRESH_MODEL_THRESHOLD = 30
@@ -35,10 +39,6 @@ aliases: "dict[str, list[str]]" = defaultdict(list)
 
 def generate_quote_path(name: str) -> str:
     return f"{QUOTEPATH}{name}quotes.txt"
-
-# lads = {"finegold", "gotham", "jamie", "kit", "mike", "cosmo",
-#         "edward", "marina", "tegan", "elyn", "roman", "adam", 
-#         "cameron", "kim", "henry", "anna"}
 
 ANSWERS = ["It is Certain.",
            "It is decidedly so.",
@@ -68,7 +68,6 @@ ANSWERS = ["It is Certain.",
 user_quote_distribution: "dict[str, int]" = compute_quote_distribution()
 
 userset = read_users()
-
 
 def usernames_as_strs(uset: "set[UserData]") -> "list[str]":
     return [u.name for u in uset]
@@ -154,6 +153,10 @@ async def on_message(msg: Message):
         await commands(msg)
     if head == "users" or head in aliases["users"]:
         await users(msg, tail)
+    if head == "congratulate" or head in aliases["congratulate"]:
+        await congratulate(msg, tail)
+    if head == "adduser" or head in aliases["adduser"]:
+        await adduser(msg, tail)
 
 manuals["pieces"] = f"""
 Usage:
@@ -176,8 +179,13 @@ async def joinme(msg, tail):
         await send(msg, f"You have to specify a name for {CMDCHAR}joinme to work.")
         return
     name, *_ = tail
+    name = name.lower()
 
-    ud = UserData(name, msg.author.name, msg.author.discriminator)
+    if not any(u.name == name for u in userset):
+        await send(msg, f"{name} is not a known user.")
+        return
+
+    ud = UserData(name, msg.author.name, msg.author.discriminator, no_associated_account=False)
     # clean out from users by the hash value
     userset.discard(ud)
     # add the new user info
@@ -219,7 +227,10 @@ async def quote(msg: Message, tail):
         qs = []
         for u in userset:
             qs += list(map(lambda x: (u.name, x), get_all_quotes(u.name)))
-
+    n = min(n, len(qs))
+    if n == 0:
+        await send(msg, "No quotes found.")
+        return
     choices = sample(qs, n)
     quotes = [f"{n}: \"{strip_endline(q)}\"" for n, q in choices]
     await send(msg, "\n".join(quotes))
@@ -228,6 +239,8 @@ async def handle_name(msg: Message, name: "Optional[str]") -> "Optional[str]":
     """
     Converts a user-entered name into a name that can be used for quote lookup.
     """
+    if name is not None: 
+        name = name.lower()
 
     if name == "me":
         sender: Any = msg.author
@@ -236,12 +249,11 @@ async def handle_name(msg: Message, name: "Optional[str]") -> "Optional[str]":
         name = weighted_choice(user_quote_distribution)
 
     if name == None:
-        await send(msg, f"I don't know who you are. Use {CMDCHAR}joinme [name] if you want to be added.")
+        await send(msg, f"I don't know who you are. Use {CMDCHAR}adduser [name] if you want to be added.")
         return None
 
-    name = name.lower()
     if not is_known_user(name, userset):
-        await send(msg, f"\"{name}\" is not in my list of users. Use {CMDCHAR}joinme {name} if you are {name} and want to be added.")
+        await send(msg, f"\"{name}\" is not in my list of users. Use {CMDCHAR}adduser {name} if you are {name} and want to be added.")
         return None
 
     return name
@@ -255,8 +267,6 @@ def user_find(username, discriminator):
         if u.username == username and u.code == discriminator:
             return u.name
     return None
-
-
 
 def inc_regen_quotes():
     global time_since_model_refresh
@@ -365,39 +375,56 @@ async def quotestats(msg: Message, tail):
     
     name, *_ = tail
 
+    def compute_stats(name: str) -> "tuple[int, int]":
+        filename = generate_quote_path(name)
+        with open(filename, 'r') as f:
+            qs = [strip_endline(q) for q in f]
+        count = len(qs)
+        avglen = int(sum(map(len, qs)) / count + 0.5)
+        return count, avglen
+
+    if name == "everyone":
+        stats = { u.name: compute_stats(u.name) for u in userset }
+        output = "Quote stats for everyone:\n"
+        for name, (count, avglen) in sorted(stats.items(), key=lambda r: r[1][0], reverse=True):
+            output += f"{name} has {count} quotes, with an average quote length of {avglen}.\n"
+        await send(msg, output)
+        return
+
     name = await handle_name(msg, name)
     if name == None: return
 
-    filename = generate_quote_path(name)
-    with open(filename, 'r') as f:
-        qs = [strip_endline(q) for q in f]
-    count = len(qs)
-    avglen = int(sum(map(len, qs)) / count + 0.5)
+    count, avglen = compute_stats(name)
     await send(msg, f"{name} has {count} quotes, with an average quote length of {avglen}.")
 
 manuals["quotesearch"] = f"""
 Usage:
 {CMDCHAR}quotesearch [quote fragment] [num]
 Searches all quotes for the specified quote fragment and returns the N quotes with the highest similarity.
-Ping cosmo to make this work with quote fragments that contain spaces.
 """
 aliases["quotesearch"].append("qsearch")
 aliases["quotesearch"].append("qs")
-# TODO: make this work with quotes that contain spaces
-async def quotesearch(msg: Message, tail):
+async def quotesearch(msg: Message, tail: "list[str]"):
     if tail == []:
         await send(msg, "You have to specify a fragment to search for.")
         return
-    elif len(tail) == 1:
-        fragment, *_ = tail
-        n = 1
+    parts = tail
+    if len(tail) > 1:
+        try:
+            n = int(tail[-1])
+            parts = tail[:-1]
+        except ValueError:
+            n = 1
     else:
-        fragment, strn, *_ = tail
-        n = int(strn)
-    
-    if n < 1 or n > 100:
-        await send(msg, "You have to specify a number greater than 0 and at most 100.")
+        n = 1
+    if n < 1:
+        await send(msg, "You have to specify a number greater than 0.")
         return
+    if n > MAX_QUOTE_SEARCH_RESULTS:
+        await send(msg, f"You have to specify a number less than or equal to {MAX_QUOTE_SEARCH_RESULTS}.")
+        return
+
+    fragment = " ".join(parts)
 
     # grab all quotes from all files
     allquotes = chain.from_iterable((map(lambda n: (u.name, n), get_all_quotes(u.name))) for u in userset)
@@ -591,6 +618,45 @@ async def users(msg: Message, text: "list[str]"):
     usernames = sorted([u.name for u in userset if not u.isnull or showall])
     await send(msg, f"Users:\n [{', '.join(usernames)}]")
 
+manuals["congratulate"] = f"""
+Usage:
+{CMDCHAR}congratulate [name]
+Congratulates the specified person!
+"""
+aliases["congratulate"].append("gratz")
+async def congratulate(msg: Message, tail: "list[str]"):
+    text = " ".join(tail)
+    if text.strip() == "":
+        await send(msg, "You have to specify a person to congratulate.")
+        return
+
+    await send(msg, f"well done {text}!")
+
+manuals["adduser"] = f"""
+Usage:
+{CMDCHAR}adduser name
+Adds the specified user to the bot's user database.
+"""
+aliases["eval"].append("au")
+async def adduser(msg: Message, tail: "list[str]"):
+    if len(tail) != 1:
+        await send(msg, "You must specify a name that contains no spaces.")
+        return
+
+    name = tail[0].lower()
+    if name in userset:
+        await send(msg, f"{name} is already registered.")
+        return
+    
+    user = UserData.dummy_from_name(name)
+    userset.add(user)
+    write_users(userset)
+    # add QUOTEPATH/namequotes.txt
+    filename = QUOTEPATH + name + "quotes.txt"
+    with open(filename, "w") as f:
+        f.write("")
+    await send(msg, f"{name} has been registered.")
+
 async def send(message: Message, text):
     """
     A simpler send function.
@@ -611,7 +677,6 @@ async def get_yes_no(message: Message, timeout=10) -> bool:
     except asyncio.TimeoutError:
         await send(message, "Answer timed out.")
         return False
-
 
 if __name__ == "__main__":
     client.run(token)

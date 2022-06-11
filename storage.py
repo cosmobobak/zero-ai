@@ -3,12 +3,15 @@ from dataclasses import dataclass
 import os
 from textproc import character_distance, strip_endline
 
+USER_DATABASE = "users.txt"
+
 @dataclass
 class UserData:
     name: str
     username: str
     code: str
     isnull: bool = False
+    no_associated_account: bool = True
 
     def __eq__(self, o: object) -> bool:
         if isinstance(o, UserData):
@@ -19,7 +22,7 @@ class UserData:
         return hash(self.name)
 
     def __repr__(self) -> str:
-        return f"{self.name}, {self.username}#{self.code}\n"
+        return f"UserData(name={self.name}, username={self.username}, code={self.code}, isnull={self.isnull}, no_associated_account={self.no_associated_account})"
 
     @classmethod
     def dummy_from_name(cls, name) -> "UserData":
@@ -28,7 +31,7 @@ class UserData:
 def read_users() -> "set[UserData]":
     # Reads the users.txt file and returns a dictionary of uid: name
     # uid is in the format "username#1234"
-    with open("users.txt", 'r') as f:
+    with open(USER_DATABASE, 'r') as f:
         users = set()
         for line in f:
             line = line.strip()
@@ -39,14 +42,14 @@ def read_users() -> "set[UserData]":
                 users.add(UserData(name, "null", "null", True))
             else:
                 username, code = uid.split("#")
-                users.add(UserData(name, username, code))
+                users.add(UserData(name, username, code, no_associated_account = False))
         return users
 
 def write_users(users: "set[UserData]") -> None:
     # Writes the users.txt file
-    with open("users.txt", 'w') as f:
+    with open(USER_DATABASE, 'w') as f:
         for user in sorted(users, key=lambda u: u.name):
-            if user.isnull:
+            if user.no_associated_account or user.isnull:
                 f.write(f"{user.name}:null\n")
             else:
                 f.write(f"{user.name}:{user.username}#{user.code}\n")
@@ -66,6 +69,7 @@ def compute_quote_distribution() -> "dict[str, int]":
 def get_all_quotes(user: str) -> "list[str]":
     # Reads the quotes.txt file and returns a list of all the quotes for the user
     with open(f"quotes/{user}quotes.txt", 'r') as f:
+        print(f"reading {os.path.abspath(f.name)}")
         return f.readlines()
 
 def read_raw_text(user: str) -> "str":
