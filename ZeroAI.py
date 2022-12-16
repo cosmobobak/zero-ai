@@ -1,12 +1,12 @@
 import asyncio
 from collections import defaultdict
 import os
+import subprocess
 from textproc import character_distance, strip_endline
 import typing
 #async scheduler so it does not block other events
 #from apscheduler.schedulers.asyncio import AsyncIOScheduler
 #from apscheduler.triggers.cron import CronTrigger
-from discord.ext import commands
 from markovify.text import NewlineText
 from markov import generate_quote, regenerate_models
 from typing import Any, Optional
@@ -157,6 +157,12 @@ async def on_message(msg: Message):
         await congratulate(msg, tail)
     if head == "adduser" or head in aliases["adduser"]:
         await adduser(msg, tail)
+    if head == "cock" or head in aliases["cock"]:
+        await cock(msg)
+    if head == "wednesday" or head in aliases["wednesday"]:
+        await wednesday(msg)
+    if head == "bash" or head in aliases["bash"]:
+        await bash(msg, tail)
 
 manuals["pieces"] = f"""
 Usage:
@@ -294,12 +300,16 @@ async def addquote(msg: Message, tail):
 
     touch(filename)
 
-    if file_contains_quote(filename, quote):
-        await send(msg, f"Not adding quote: is already in the list of quotes for {name}.")
-        return
-
     if "@" in quote:
         await send(msg, "Not adding quote: Quote contains an '@' character, which is not allowed.")
+        return
+
+    if '\n' in quote:
+        await send(msg, "Not adding quote: Quote contains a newline character, which is not allowed.")
+        return
+
+    if file_contains_quote(filename, quote):
+        await send(msg, f"Not adding quote: is already in the list of quotes for {name}.")
         return
 
     if len(quote) > MAX_QUOTE_LENGTH:
@@ -656,6 +666,45 @@ async def adduser(msg: Message, tail: "list[str]"):
     with open(filename, "w") as f:
         f.write("")
     await send(msg, f"{name} has been registered.")
+
+manuals["cock"] = f"""
+Usage:
+{CMDCHAR}cock
+Explains all about John Green's favourite taste.
+"""
+async def cock(msg: Message):
+    await send(msg, "As I near 200,000 followers here at fishingboatproceeds, I just wanted to to say cock is one of my favorite tastes. Not only that, but balls smell amazing. It makes me go a little crazy on it to be honest. Like, I cannot get it far enough down my throat to be satisfied. I’m only satisfied when I feel those intense, powerful, salty hot pumps of cum down my throat. When I sit back on my heels, look up at you with cum all over my mouth and slobber running down my neck, hair all fucked up and wipe my mouth with the back of my arm and ask you if I did a good job and you cannot even speak because I’ve drained all of your energy out the tip of your dick..... that’s when I’m satisfied.")
+
+manuals["wednesday"] = f"""
+Usage:
+{CMDCHAR}wednesday
+What a week, huh?
+"""
+aliases["wednesday"].append("wed")
+aliases["wednesday"].append("whataweek")
+async def wednesday(msg: Message):
+    await send(msg, "https://cdn.discordapp.com/attachments/588844070315622410/1014434813761028136/20220323_114006-4.jpg")
+
+manuals["bash"] = f"""
+Usage:
+{CMDCHAR}bash [command(s)]
+Executes bash commands. Don't use this if you aren't cosmo.
+"""
+async def bash(msg: Message, tail: "list[str]"):
+    sender: Any = msg.author
+    name = user_find(sender.name, sender.discriminator)
+    if name != "cosmo":
+        await send(msg, "You are not cosmo.")
+        return
+
+    cmd = " ".join(tail)
+    await send(msg, f"Executing `{cmd}`...")
+    try:
+        text = subprocess.check_output(cmd, shell=True).decode("utf-8")
+    except subprocess.CalledProcessError as e:
+        text = f"ERROR:\n{e.output.decode('utf-8')}"
+    text = text[:1800]
+    await send(msg, f"```\n{text}\n```")
 
 async def send(message: Message, text):
     """
